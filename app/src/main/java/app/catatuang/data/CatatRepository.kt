@@ -5,6 +5,8 @@ import app.catatuang.data.db.amountEntities
 import app.catatuang.data.db.toEntity
 import app.catatuang.data.db.toRecord
 import app.catatuang.engine.AllocationLine
+import app.catatuang.engine.Category
+import app.catatuang.engine.LedgerInput
 import app.catatuang.engine.Defaults
 import app.catatuang.engine.LedgerState
 import app.catatuang.engine.Tx
@@ -23,8 +25,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
 import java.time.YearMonth
+
+sealed interface AppState {
+    data object Loading : AppState
+    data class NeedsOnboarding(val settings: SettingsRecord) : AppState
+    data class Ready(val settings: SettingsRecord, val input: LedgerInput, val ledger: LedgerState, val today: LocalDate) : AppState
+}
 
 /**
  * Satu-satunya pintu data (7.2). Setiap perubahan data memicu `computeLedger` ulang penuh; hasilnya
@@ -63,10 +73,52 @@ class CatatRepository(
         )
     }
 
-    /** Null sampai onboarding selesai (belum ada tanggal mulai). */
-    val ledger: StateFlow<LedgerState?> = combine(snapshot, clock.today) { snap, today ->
-        snap.toLedgerInput()?.let { computeLedger(it, today) }
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+    /** Keadaan app: memuat → perlu onboarding → siap (dengan ledger hasil hitung ulang penuh). */
+    val state: StateFlow<AppState> = combine(snapshot, clock.today) { snap, today ->
+        val input = snap.toLedgerInput()
+        if (!snap.settings.onboardingDone || input == null) {
+            AppState.NeedsOnboarding(snap.settings)
+        } else {
+            AppState.Ready(snap.settings, input, computeLedger(input, today), today)
+        }
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, AppState.Loading)
+
+    /** Null sampai onboarding selesai. */
+    val ledger: StateFlow<LedgerState?> = state.map { (it as? AppState.Ready)?.ledger }
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
+    /**
+     * 8.12 Mulai Baru: simpan pos (nominal hasil konfirmasi berlaku sejak awal), saldo awal, tanggal
+     * mulai, dan hash PIN. Ledger bulan awal dihitung engine (planOnboarding).
+     */
+    suspend fun completeOnboarding(
+        nickname: String,
+        pin: StoredPin,
+        categories: List<Category>,
+        cash: Long,
+        savings: Long,
+        emergency: Long,
+        start: LocalDate,
+    ) {
+        val records = categories.map { it.toRecord() }
+        dao.replaceAll(
+            categories = records.map { it.toEntity() },
+            amounts = records.flatMap { it.amountEntities() },
+            plans = emptyList(), allocations = emptyList(), txs = emptyList(),
+            obligations = emptyList(), dayMarks = emptyList(), closures = emptyList(),
+        )
+        settings.setPin(pin)
+        settings.update {
+            it.copy(
+                nickname = nickname.ifBlank { Defaults.NICKNAME },
+                startDate = start.toString(),
+                cashStart = cash,
+                savingsStart = savings,
+                emergencyStart = emergency,
+                onboardingDone = true,
+            )
+        }
+    }
 
     suspend fun seedDefaultCategories() {
         if (dao.categoriesNow().isNotEmpty()) return
@@ -87,6 +139,11 @@ class CatatRepository(
         return dao.insertTxBatch(txs.mapIndexed { i, tx ->
             tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testMode).toEntity()
         })
+    }
+
+    /** Kembalikan transaksi yang baru dihapus (Urungkan) dengan id & urutan aslinya. */
+    suspend fun addTransactionKeepingId(tx: Tx) {
+        dao.insertTx(tx.toRecord(updatedAt = now()).toEntity())
     }
 
     suspend fun updateTransaction(tx: Tx) {
