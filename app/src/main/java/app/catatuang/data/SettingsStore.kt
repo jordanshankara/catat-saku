@@ -91,7 +91,8 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         p[SAFE_THRESHOLD] = s.safeThreshold
         p[EMERGENCY_TARGET] = s.emergencyTarget
         p[THEME] = s.theme
-        if (s.startDate == null) p.remove(START_DATE) else p[START_DATE] = s.startDate
+        val start = s.startDate
+        if (start == null) p.remove(START_DATE) else p[START_DATE] = start
         p[CASH_START] = s.cashStart
         p[SAVINGS_START] = s.savingsStart
         p[EMERGENCY_START] = s.emergencyStart

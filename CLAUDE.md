@@ -608,10 +608,10 @@ Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perp
 | ID | Konteks | Keputusan |
 |---|---|---|
 | D-01 | Identitas app | `applicationId`/package `app.catatuang`. Tidak bisa diganti setelah APK pertama ter-install tanpa uninstall. |
-| D-02 | Struktur modul 7.1 | `core/engine` adalah modul Gradle `:core:engine` di root repo (Kotlin/JVM murni, tanpa Android). Sisanya (data/, feature/, notify/, …) adalah package di `:app`. `:app` hanya disertakan bila Android SDK terdeteksi, dan tiap modul memuat plugin-nya sendiri, supaya engine bisa di-build & dites tanpa Google Maven. |
-| D-03 | Versi library Google Maven | Environment build pertama memblokir `dl.google.com`, jadi versi AGP 8.13.0, Compose BOM 2025.09.00, Room 2.7.2, DataStore 1.1.7, Navigation 2.9.4, dll. dipilih tanpa verifikasi. Wajib dicek & disesuaikan saat pertama kali build dengan SDK. Kotlin 2.2.20, KSP 2.2.20-2.0.4, kotlinx.serialization 1.9.0, coroutines 1.10.2 sudah terverifikasi. |
+| D-02 | Struktur modul 7.1 | `core/engine` adalah modul Gradle `:core:engine` di root repo (Kotlin/JVM murni, tanpa Android). Sisanya (data/, feature/, notify/, …) adalah package di `:app`. `:app` hanya disertakan bila Android SDK terdeteksi (`local.properties`/`ANDROID_HOME`). Semua plugin dideklarasikan di root dengan `apply false`. |
+| D-03 | Toolchain | Gradle 9.8.0, AGP 9.4.1 (Kotlin bawaan AGP, tanpa plugin `kotlin-android`), Kotlin 2.4.20, KSP 2.3.12, Compose BOM 2026.09.00, Room 2.8.5, DataStore 1.2.1, Navigation 2.10.2, kotlinx.serialization 1.11.0, coroutines 1.11.0. Semua terverifikasi & ter-build. |
 | D-04 | Repositori Maven | Mirror Maven Central milik Google (`maven-central.storage-download.googleapis.com`) dipasang paling depan karena Maven Central sering membalas 429; Maven Central tetap sebagai cadangan. |
-| D-05 | JDK 17 | Bytecode ditargetkan Java 17 (`jvmTarget`/`targetCompatibility` 17), boleh di-build dengan JDK ≥ 17. |
+| D-05 | JDK 17 | Bytecode ditargetkan Java 17 (`jvmTarget`/`targetCompatibility` 17), boleh di-build dengan JDK ≥ 17. compileSdk/targetSdk = 37 (Android 17, platform stabil terbaru saat Fase 0). |
 | D-06 | Letak format data & backup | Record data (7.4) dan codec backup JSON (bab 11) ditulis Kotlin murni di `core/engine` (package `store`) supaya T-25 bisa dites tanpa Android. `data/` hanya memetakan entity Room ↔ record 1:1. |
 | D-07 | Kolom tambahan | `tx` ditambah `routine` (Nabung rutin, R-07), `closingOf` (transaksi Tutup Buku), `incomeKind`, `testMode` (Mode Uji). Nominal pos berversi disimpan di tabel `category_amount` (R-95); di JSON backup, nominal ada di dalam tiap `categories[].amounts`. |
 | D-08 | Transaksi Tutup Buku | Dicatat dengan tanggal saat dibuat + `closingOf = bulan yang ditutup`; bulan akuntansinya bulan yang ditutup, diproses setelah bulan itu berakhir. |
@@ -628,3 +628,5 @@ Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perp
 | D-19 | Kewajiban TETAP bulan onboarding | Tidak dibuat (8.12: dianggap sudah dibayar). |
 | D-20 | Ikon launcher | Ikon dompet gaya Lucide putih di latar `primary`. Font Plus Jakarta Sans dibundel sebagai satu file variable font (sumbu `wght`). |
 | D-21 | Hutang besar saat proyeksi | Peringatan R-27 di layar input memakai hutang proyeksi (seolah hari ini ditutup sekarang). |
+| D-22 | Izin tambahan di APK | `app.catatuang.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` ditambahkan otomatis oleh AndroidX Core; ini izin internal berlevel *signature* milik app sendiri, bukan izin yang diminta ke pengguna. Tidak melanggar batas izin bagian 3. |
+| D-23 | Skema Room | Skema ter-export ke `app/schemas/` dan ikut di-commit sebagai dasar migrasi (bab 11). |

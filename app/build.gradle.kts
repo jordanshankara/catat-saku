@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -16,12 +15,12 @@ val hasReleaseKeystore = keystoreProps.getProperty("storeFile") != null
 
 android {
     namespace = "app.catatuang"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.catatuang"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         // Naikkan setiap build yang di-install ke HP.
         versionCode = 1
         versionName = "0.1.0"
