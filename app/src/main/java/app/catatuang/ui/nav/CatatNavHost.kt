@@ -52,6 +52,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.catatuang.data.AppState
 import app.catatuang.engine.CategoryKind
+import app.catatuang.engine.pendingClosing
+import app.catatuang.feature.closing.ClosingScreen
+import app.catatuang.feature.settings.SettingsScreen
 import app.catatuang.feature.common.LedgerViewModel
 import app.catatuang.feature.detail.DailyDetailScreen
 import app.catatuang.feature.detail.StockDetailScreen
@@ -87,7 +90,7 @@ enum class Tab(val route: String, val label: String, val icon: ImageVector) {
 /** Layar utama setelah onboarding & kunci: tab, detail, sheet input/edit, feedback & Urungkan. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold(vm: LedgerViewModel) {
+fun MainScaffold(vm: LedgerViewModel, deepLink: kotlinx.coroutines.flow.MutableStateFlow<String?> = remember { kotlinx.coroutines.flow.MutableStateFlow(null) }) {
     val appState by vm.state.collectAsStateWithLifecycle()
     val ready = appState as? AppState.Ready ?: return
     val nav = rememberNavController()
@@ -99,6 +102,7 @@ fun MainScaffold(vm: LedgerViewModel) {
 
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var inputFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    var inputDate by rememberSaveable { mutableStateOf<java.time.LocalDate?>(null) }
     var editTx by rememberSaveable { mutableStateOf<Long?>(null) }
     var showNotices by rememberSaveable { mutableStateOf(false) }
     var showIncome by rememberSaveable { mutableStateOf(false) }
@@ -129,6 +133,38 @@ fun MainScaffold(vm: LedgerViewModel) {
         val data = snackbar.currentSnackbarData ?: return@LaunchedEffect
         delay(5_000)
         data.dismiss()
+    }
+
+    // 6.10: Tutup Buku terbuka otomatis sekali saat app dibuka setelah bulannya berakhir.
+    val autoOpened by vm.closingAutoOpened.collectAsStateWithLifecycle()
+    val pending = pendingClosing(ready.ledger)
+    LaunchedEffect(pending?.month, autoOpened, current) {
+        val p = pending ?: return@LaunchedEffect
+        if (current == Tab.Beranda.route && autoOpened != LedgerViewModel.LOADING && autoOpened != p.month.toString()) {
+            vm.markClosingAutoOpened(p.month)
+            nav.navigate("closing/${p.month}")
+        }
+    }
+
+    // Rute dari notifikasi (bab 9). Hanya diproses di sini, jadi kunci PIN sudah dilewati (8.14).
+    val link by deepLink.collectAsStateWithLifecycle()
+    LaunchedEffect(link) {
+        val route = link ?: return@LaunchedEffect
+        deepLink.value = null
+        fun home() = nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+        when {
+            route.startsWith("input/") -> { home(); inputFor = route.removePrefix("input/").toLongOrNull() }
+            route == "picker" -> { home(); showPicker = true }
+            route == "salary" -> nav.navigate("salary")
+            route == "closing" -> pendingClosing(ready.ledger)?.let { nav.navigate("closing/${it.month}") } ?: home()
+            route.startsWith("pay/") -> {
+                home()
+                val id = route.removePrefix("pay/").toLongOrNull()
+                payFixed = app.catatuang.feature.fixed.unpaidFixed(ready.input.categories, ready.ledger, ready.today).firstOrNull { it.categoryId == id }
+            }
+            route == "report" -> nav.navigate(Tab.Laporan.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+            else -> home()
+        }
     }
 
     fun openDetail(id: Long) {
@@ -172,12 +208,27 @@ fun MainScaffold(vm: LedgerViewModel) {
                     onSavings = { nav.navigate("savings") },
                     onPayFixed = { payFixed = it },
                     onDismissCadangan = { vm.dismissCadanganBanner(ready.ledger.currentMonth) },
+                    onClosing = { pendingClosing(ready.ledger)?.let { nav.navigate("closing/${it.month}") } },
                 )
             }
             composable(Tab.Riwayat.route) { HistoryScreen(ready, onEdit = { editTx = it }) }
             composable(Tab.Laporan.route) { Placeholder("Laporan", "Laporan mingguan & bulanan dibuat di Fase 6.") }
-            composable(Tab.Pengaturan.route) { Placeholder("Pengaturan", "Pengaturan dibuat di fase berikutnya.") }
-            composable("salary") { SalaryScreen(ready, vm, onDone = { nav.popBackStack() }) }
+            composable("salary?target={target}") { entry ->
+                val target = entry.arguments?.getString("target")?.let(java.time.YearMonth::parse)
+                SalaryScreen(ready, vm, onDone = { nav.popBackStack() }, initialTarget = target)
+            }
+            composable("closing/{month}") { entry ->
+                val month = entry.arguments?.getString("month")?.let(java.time.YearMonth::parse) ?: return@composable
+                ClosingScreen(
+                    ready, vm, month,
+                    onRecordLastDay = { d -> inputDate = d; showPicker = true },
+                    onSalary = { m -> nav.navigate("salary?target=$m") },
+                    onDone = { nav.popBackStack() },
+                )
+            }
+            composable(Tab.Pengaturan.route) {
+                SettingsScreen(ready, vm)
+            }
             composable("savings") { SavingsScreen(ready, vm, onBack = { nav.popBackStack() }) }
             composable("detail/daily/{id}") { entry ->
                 val id = entry.arguments?.getString("id")?.toLongOrNull()
@@ -197,7 +248,7 @@ fun MainScaffold(vm: LedgerViewModel) {
     }
 
     if (showPicker) {
-        ModalBottomSheet(onDismissRequest = { showPicker = false }, shape = CatatShapes.sheet, containerColor = colors.surface) {
+        ModalBottomSheet(onDismissRequest = { showPicker = false; inputDate = null }, shape = CatatShapes.sheet, containerColor = colors.surface) {
             CategoryPicker(ready) { id -> showPicker = false; inputFor = id }
         }
     }
@@ -206,14 +257,15 @@ fun MainScaffold(vm: LedgerViewModel) {
         val cat = ready.input.categories.firstOrNull { it.id == id }
         if (cat != null) {
             ModalBottomSheet(
-                onDismissRequest = { inputFor = null },
+                onDismissRequest = { inputFor = null; inputDate = null },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 shape = CatatShapes.sheet,
                 containerColor = colors.surface,
             ) {
-                InputContent(cat, ready, vm, onSaved = {
+                InputContent(cat, ready, vm, initialDate = inputDate, onSaved = {
                     inputFor = null
-                    if (current != Tab.Beranda.route) nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+                    inputDate = null
+                    if (isTab && current != Tab.Beranda.route) nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
                 })
             }
         }
@@ -233,7 +285,7 @@ fun MainScaffold(vm: LedgerViewModel) {
         ) {
             IncomeContent(ready, vm, onSaved = {
                 showIncome = false
-                if (current != Tab.Beranda.route) nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+                if (isTab && current != Tab.Beranda.route) nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
             })
         }
     }

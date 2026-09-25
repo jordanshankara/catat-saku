@@ -28,7 +28,8 @@ class TestEnv(context: Context, today: LocalDate) {
     val settings = SettingsStore(
         PreferenceDataStoreFactory.create(scope = scope) { File.createTempFile("settings", ".preferences_pb").apply { delete() } },
     )
-    val repo = CatatRepository(db.dao(), settings, clock, scope)
+    val testFile: File = File.createTempFile("testmode", ".json").apply { delete() }
+    val repo = CatatRepository(db.dao(), settings, clock, scope, testSnapshotFile = testFile)
     val lock = LockManager(timeoutMinutes = { 5 })
 
     fun onboard(start: LocalDate, cash: Long, pin: String = "4821") = runBlocking {
@@ -46,6 +47,11 @@ class TestEnv(context: Context, today: LocalDate) {
     }
 
     /** Keadaan siap yang sudah memuat semua transaksi di database (StateFlow bisa sedikit tertinggal). */
+    /** Anggap Tutup Buku tertunda sudah pernah dibuka otomatis (supaya test lain tidak terbawa ke layar itu). */
+    fun skipAutoClosing() = runBlocking {
+        app.catatuang.engine.pendingClosing(ready().ledger)?.let { repo.setClosingAutoOpened(it.month) }
+    }
+
     fun ready() = runBlocking {
         val n = db.dao().transactionsNow().size
         repo.state.filterIsInstance<app.catatuang.data.AppState.Ready>().first { it.input.transactions.size == n }

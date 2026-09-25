@@ -39,11 +39,28 @@ class SettingsStore(private val store: DataStore<Preferences>) {
     /** Bulan split terakhir yang checklist transfer-nya belum dicentang (R-57), dan berapa kali sudah diingatkan. */
     val transferChecklist: Flow<Pair<String?, Int>> = store.data.map { it[CHECKLIST_MONTH] to (it[CHECKLIST_REMINDERS] ?: 0) }
 
+    /** Tanggal checklist dibuat; pengingat mulai esok harinya jam 09:00 (R-57). */
+    val transferChecklistSince: Flow<String?> = store.data.map { it[CHECKLIST_SINCE] }
+
     /** Bulan yang banner cadangan tanggal 1-nya sudah ditutup (R-14 butir 2). */
     val cadanganBannerDismissed: Flow<String?> = store.data.map { it[CADANGAN_DISMISSED] }
 
     suspend fun dismissCadanganBanner(month: String) {
         store.edit { it[CADANGAN_DISMISSED] = month }
+    }
+
+    /** Mode Uji Tanggal (8.11): tanggal "hari ini" palsu; null = mati. */
+    val testModeDate: Flow<String?> = store.data.map { it[TEST_MODE_DATE] }
+
+    suspend fun setTestModeDate(date: String?) {
+        store.edit { if (date == null) it.remove(TEST_MODE_DATE) else it[TEST_MODE_DATE] = date }
+    }
+
+    /** Bulan yang Tutup Buku-nya sudah dibuka otomatis sekali (6.10). */
+    val closingAutoOpened: Flow<String?> = store.data.map { it[CLOSING_AUTO_OPENED] }
+
+    suspend fun setClosingAutoOpened(month: String) {
+        store.edit { it[CLOSING_AUTO_OPENED] = month }
     }
 
     suspend fun current(): SettingsRecord = settings.first()
@@ -66,10 +83,11 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         store.edit { p -> if (uri == null) p.remove(BACKUP_URI) else p[BACKUP_URI] = uri }
     }
 
-    suspend fun setTransferChecklist(month: String?, reminders: Int = 0) {
+    suspend fun setTransferChecklist(month: String?, reminders: Int = 0, since: String? = null) {
         store.edit { p ->
             if (month == null) p.remove(CHECKLIST_MONTH) else p[CHECKLIST_MONTH] = month
             p[CHECKLIST_REMINDERS] = reminders
+            if (since != null) p[CHECKLIST_SINCE] = since
         }
     }
 
@@ -128,6 +146,9 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val BACKUP_URI = stringPreferencesKey("backup_folder_uri")
         val CHECKLIST_MONTH = stringPreferencesKey("transfer_checklist_month")
         val CHECKLIST_REMINDERS = intPreferencesKey("transfer_checklist_reminders")
+        val CHECKLIST_SINCE = stringPreferencesKey("transfer_checklist_since")
         val CADANGAN_DISMISSED = stringPreferencesKey("cadangan_banner_dismissed")
+        val TEST_MODE_DATE = stringPreferencesKey("test_mode_date")
+        val CLOSING_AUTO_OPENED = stringPreferencesKey("closing_auto_opened")
     }
 }

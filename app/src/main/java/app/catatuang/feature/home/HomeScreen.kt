@@ -64,6 +64,7 @@ fun HomeScreen(
     onSavings: () -> Unit = {},
     onPayFixed: (FixedDue) -> Unit = {},
     onDismissCadangan: () -> Unit = {},
+    onClosing: () -> Unit = {},
 ) {
     val c = CatatTheme.colors
     Column(
@@ -135,7 +136,7 @@ fun HomeScreen(
         ui.closingBanner?.let {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.warningBg)
-                    .clickable(role = Role.Button) { onNotYet("Alur Tutup Buku dibuat di Fase 4.") }.padding(14.dp),
+                    .clickable(role = Role.Button, onClick = onClosing).padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {

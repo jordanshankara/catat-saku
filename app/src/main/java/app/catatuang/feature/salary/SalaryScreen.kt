@@ -80,7 +80,7 @@ import java.time.YearMonth
 
 /** 8.6 Gajian: Nominal → (Penyesuaian) → Preview split → Checklist. */
 @Composable
-fun SalaryScreen(ready: AppState.Ready, vm: LedgerViewModel, onDone: () -> Unit) {
+fun SalaryScreen(ready: AppState.Ready, vm: LedgerViewModel, onDone: () -> Unit, initialTarget: YearMonth? = null) {
     val c = CatatTheme.colors
     val input = ready.input
     val today = ready.today
@@ -91,8 +91,10 @@ fun SalaryScreen(ready: AppState.Ready, vm: LedgerViewModel, onDone: () -> Unit)
 
     var step by rememberSaveable { mutableStateOf(SalaryStep.NOMINAL) }
     var amount by rememberSaveable { mutableLongStateOf(lastSalaryAmount(input.transactions, input.config.salaryTemplate)) }
-    var received by rememberSaveable { mutableStateOf(today) }
-    var target by rememberSaveable { mutableStateOf(defaultTargetMonth(today)) }
+    // Dari Tutup Buku (6.10 langkah 1): gaji bulan lampau biasanya diterima akhir bulan sebelumnya.
+    val initialReceived = initialTarget?.let { maxOf(input.onboarding.startDate, minOf(today, it.minusMonths(1).atEndOfMonth())) } ?: today
+    var received by rememberSaveable { mutableStateOf(initialReceived) }
+    var target by rememberSaveable { mutableStateOf(initialTarget ?: defaultTargetMonth(today)) }
     var prep by remember { mutableStateOf<SalaryPrep?>(null) }
     var allocation by remember { mutableStateOf<List<AllocationLine>>(emptyList()) }
     var askExtra by remember { mutableStateOf(false) }

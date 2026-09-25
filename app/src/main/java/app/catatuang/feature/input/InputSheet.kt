@@ -91,14 +91,16 @@ fun InputContent(
     vm: LedgerViewModel,
     onSaved: () -> Unit,
     nowTime: () -> LocalTime = LocalTime::now,
+    /** Tanggal awal (mis. pintasan Tutup Buku langkah 0 ke hari terakhir bulan lalu). */
+    initialDate: LocalDate? = null,
 ) {
     val c = CatatTheme.colors
     val today = ready.today
     var amount by rememberSaveable { mutableLongStateOf(0L) }
-    var date by rememberSaveable { mutableStateOf(today) }
-    var slot by rememberSaveable { mutableStateOf(defaultSlot(nowTime())) }
+    var date by rememberSaveable { mutableStateOf(initialDate ?: today) }
+    var slot by rememberSaveable { mutableStateOf(defaultSlot(nowTime(), isYesterday = initialDate != null && initialDate.isBefore(today))) }
     var note by rememberSaveable { mutableStateOf("") }
-    var askDay by rememberSaveable { mutableStateOf(needsDayQuestion(nowTime())) }
+    var askDay by rememberSaveable { mutableStateOf(initialDate == null && needsDayQuestion(nowTime())) }
     var confirmTypo by remember { mutableStateOf<Long?>(null) }
     var pickDate by remember { mutableStateOf(false) }
     var impact by remember { mutableStateOf<Impact?>(null) }

@@ -8,6 +8,7 @@ import app.catatuang.engine.SafetyStatus
 import app.catatuang.engine.SalaryStatus
 import app.catatuang.engine.StockStatus
 import app.catatuang.engine.daysUntilClosing
+import app.catatuang.engine.pendingClosing
 import app.catatuang.engine.planSplit
 import app.catatuang.feature.fixed.FixedDue
 import app.catatuang.feature.fixed.unpaidFixed
@@ -147,8 +148,7 @@ fun buildHomeUi(
         else -> null
     }
 
-    val prev = state.months[state.currentMonth.minusMonths(1)]
-    val closingBanner = prev?.takeIf { it.monthEnded && !it.closed }?.let { "Tutup buku ${monthName(it.month)} belum dilakukan" }
+    val closingBanner = pendingClosing(state)?.let { "Tutup buku ${monthName(it.month, state.currentMonth)} belum dilakukan" }
 
     val tiles = buildTiles(input.categories, state, today)
 

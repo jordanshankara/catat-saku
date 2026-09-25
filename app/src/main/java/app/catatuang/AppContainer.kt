@@ -13,6 +13,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** DI manual (bagian 3): satu container untuk seluruh app, tanpa Hilt/Koin. */
 class AppContainer(context: Context) {
@@ -21,6 +22,11 @@ class AppContainer(context: Context) {
     val database: CatatDatabase = CatatDatabase.build(context)
     val settings = SettingsStore(context.settingsDataStore)
     val settingsState: StateFlow<SettingsRecord> = settings.settings.stateIn(appScope, SharingStarted.Eagerly, SettingsRecord())
-    val repository = CatatRepository(database.dao(), settings, clock, appScope)
+    val repository = CatatRepository(
+        database.dao(), settings, clock, appScope,
+        testSnapshotFile = java.io.File(context.filesDir, "testmode-snapshot.json"),
+    ).also { repo -> appScope.launch { repo.restoreTestClock() } }
+    /** Rute dari notifikasi yang menunggu dibuka setelah app tidak terkunci (8.14). */
+    val deepLink = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val lockManager = LockManager(timeoutMinutes = { settingsState.value.lockTimeoutMinutes })
 }

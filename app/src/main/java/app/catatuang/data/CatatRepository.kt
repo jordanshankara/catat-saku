@@ -14,6 +14,9 @@ import app.catatuang.engine.LedgerState
 import app.catatuang.engine.Tx
 import app.catatuang.engine.computeLedger
 import app.catatuang.engine.fixedObligationsFor
+import app.catatuang.engine.store.BackupCodec
+import app.catatuang.engine.store.BackupDocument
+import app.catatuang.engine.store.BackupReadResult
 import app.catatuang.engine.store.DataSnapshot
 import app.catatuang.engine.store.FixedObligationRecord
 import app.catatuang.engine.store.SettingsRecord
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -51,6 +55,8 @@ class CatatRepository(
     private val clock: AppClock,
     scope: CoroutineScope,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Salinan data asli selama Mode Uji Tanggal (8.11); null = Mode Uji tidak tersedia (test). */
+    private val testSnapshotFile: java.io.File? = null,
 ) {
     private val tables: Flow<DataSnapshot> = combine(
         dao.categories(), dao.categoryAmounts(), dao.monthPlans(), dao.allocations(), dao.transactions(),
@@ -148,7 +154,14 @@ class CatatRepository(
     val transferChecklist: Flow<Pair<String?, Int>> = settings.transferChecklist
     val cadanganBannerDismissed: Flow<String?> = settings.cadanganBannerDismissed
 
-    suspend fun setTransferChecklist(month: YearMonth?) = settings.setTransferChecklist(month?.toString())
+    suspend fun setTransferChecklist(month: YearMonth?) = settings.setTransferChecklist(month?.toString(), 0, clock.now().toString())
+    suspend fun bumpChecklistReminder(month: String, count: Int) = settings.setTransferChecklist(month, count)
+    val transferChecklistSince: Flow<String?> = settings.transferChecklistSince
+
+    /** R-66 "Hari ini beres": hanya menandai hari selesai dicatat. */
+    suspend fun markDayDone(date: LocalDate) = dao.upsertDayMark(app.catatuang.data.db.DayMarkEntity(date.toString(), true))
+
+    suspend fun updateSettings(transform: (SettingsRecord) -> SettingsRecord) = settings.update(transform)
     suspend fun dismissCadanganBanner(month: YearMonth) = settings.dismissCadanganBanner(month.toString())
 
     /** Hasil simpan gaji, untuk Urungkan. */
@@ -189,17 +202,85 @@ class CatatRepository(
         dao.unpayFixed(txId, obligation)
     }
 
+    // ---------- Tutup Buku (6.10) ----------
+
+    /** Langkah 1: tandai/batalkan "Bulan ini tanpa gaji". */
+    suspend fun setNoSalary(month: YearMonth, noSalary: Boolean) {
+        val m = month.toString()
+        val plan = dao.monthPlan(m) ?: MonthPlanEntity(m, null, noSalary = false, status = "OPEN", createdAt = now())
+        dao.upsertMonthPlan(plan.copy(noSalary = noSalary))
+    }
+
+    /** Langkah 5 "Tidak jadi" (R-43) / batalkan pilihan itu. */
+    suspend fun setFixedCancelled(month: YearMonth, categoryId: Long, estimate: Long, cancelled: Boolean) {
+        val old = dao.fixedObligationsNow().firstOrNull { it.yearMonth == month.toString() && it.categoryId == categoryId }
+            ?: FixedObligationRecord(month.toString(), categoryId, estimate).toEntity()
+        dao.upsertFixedObligations(listOf(old.copy(status = if (cancelled) "CANCELLED" else "UNPAID", paidTxId = null)))
+    }
+
+    suspend fun replaceTransactions(deleteIds: List<Long>, txs: List<Tx>): List<Long> {
+        val t = now()
+        return dao.replaceTxs(deleteIds, txs.mapIndexed { i, tx -> tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testModeOn()).toEntity() })
+    }
+
+    /** Selesaikan Tutup Buku: bulan read-only (R-64) + snapshot. */
+    suspend fun closeMonth(month: YearMonth, verdict: String, verdictAmount: Long, snapshotJson: String, reconciledActual: Long?) {
+        val m = month.toString()
+        val t = now()
+        val plan = (dao.monthPlan(m) ?: MonthPlanEntity(m, null, noSalary = false, status = "OPEN", createdAt = t)).copy(status = "CLOSED")
+        dao.closeMonth(plan, app.catatuang.data.db.MonthClosureEntity(m, verdict, verdictAmount, snapshotJson, reconciledActual, t))
+    }
+
+    val closingAutoOpened: Flow<String?> = settings.closingAutoOpened
+    suspend fun setClosingAutoOpened(month: YearMonth) = settings.setClosingAutoOpened(month.toString())
+
+    // ---------- Mode Uji Tanggal (8.11) ----------
+
+    val testModeDate: Flow<LocalDate?> = settings.testModeDate.map { it?.let(LocalDate::parse) }
+    private fun testModeOn(): Boolean = clock.override.value != null
+    val testModeAvailable: Boolean get() = testSnapshotFile != null
+
+    /** Pulihkan override jam uji setelah app dibuka ulang. */
+    suspend fun restoreTestClock() {
+        clock.override.value = settings.testModeDate.first()?.let(LocalDate::parse)
+    }
+
+    /**
+     * Nyalakan / geser tanggal Mode Uji. Saat pertama dinyalakan, seluruh data asli disalin ke file; semua
+     * yang dibuat selama mode uji hilang saat mode dimatikan karena data asli dipulihkan utuh.
+     */
+    suspend fun setTestDate(date: LocalDate) {
+        val file = testSnapshotFile ?: return
+        if (!file.exists()) {
+            val doc = BackupDocument.of(exportSnapshot(), "test-mode", java.time.LocalDateTime.now())
+            file.writeText(BackupCodec.encode(doc))
+        }
+        settings.setTestModeDate(date.toString())
+        clock.override.value = date
+    }
+
+    suspend fun exitTestMode() {
+        val file = testSnapshotFile ?: return
+        if (file.exists()) {
+            val result = BackupCodec.decode(file.readText())
+            if (result is BackupReadResult.Ok) restore(result.document.toSnapshot())
+            file.delete()
+        }
+        settings.setTestModeDate(null)
+        clock.override.value = null
+    }
+
     /** Simpan transaksi baru; id diberikan database. */
     suspend fun addTransaction(tx: Tx, testMode: Boolean = false): Long {
         val t = now()
-        return dao.insertTx(tx.copy(id = 0, createdAt = t).toRecord(updatedAt = t, testMode = testMode).toEntity())
+        return dao.insertTx(tx.copy(id = 0, createdAt = t).toRecord(updatedAt = t, testMode = testMode || testModeOn()).toEntity())
     }
 
     /** Beberapa transaksi dalam satu transaksi database (Mode Darurat, Pakai Tabungan + pengeluaran). */
     suspend fun addTransactions(txs: List<Tx>, testMode: Boolean = false): List<Long> {
         val t = now()
         return dao.insertTxBatch(txs.mapIndexed { i, tx ->
-            tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testMode).toEntity()
+            tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testMode || testModeOn()).toEntity()
         })
     }
 

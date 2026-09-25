@@ -9,8 +9,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -45,16 +49,32 @@ class MainActivity : ComponentActivity() {
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
         }
+        handle(intent)
         setContent {
             CatatUangTheme {
-                CatatRoot(container.repository, container.settings, container.lockManager, container.clock)
+                CatatRoot(container.repository, container.settings, container.lockManager, container.clock, container.deepLink)
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
+    private fun handle(intent: android.content.Intent?) {
+        intent?.getStringExtra(app.catatuang.notify.Notifier.EXTRA_ROUTE)?.let { (application as CatatUangApp).container.deepLink.value = it }
     }
 }
 
 @Composable
-fun CatatRoot(repository: CatatRepository, settings: SettingsStore, lockManager: LockManager, clock: AppClock) {
+fun CatatRoot(
+    repository: CatatRepository,
+    settings: SettingsStore,
+    lockManager: LockManager,
+    clock: AppClock,
+    deepLink: kotlinx.coroutines.flow.MutableStateFlow<String?> = remember { kotlinx.coroutines.flow.MutableStateFlow(null) },
+) {
     val state by repository.state.collectAsStateWithLifecycle()
     val locked by lockManager.locked.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize().background(CatatTheme.colors.background)) {
@@ -75,8 +95,20 @@ fun CatatRoot(repository: CatatRepository, settings: SettingsStore, lockManager:
                 val vm: LedgerViewModel = viewModel(factory = viewModelFactory {
                     initializer { LedgerViewModel(repository) }
                 })
-                MainScaffold(vm)
+                MainScaffold(vm, deepLink)
             }
+        }
+        // 8.11: banner merah "MODE UJI" di semua layar selama Mode Uji Tanggal aktif.
+        val testDate by repository.testModeDate.collectAsStateWithLifecycle(null)
+        testDate?.let { d ->
+            androidx.compose.material3.Text(
+                "MODE UJI · ${app.catatuang.ui.format.shortDate(d)}",
+                style = app.catatuang.ui.theme.CatatType.captionSmall,
+                color = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter).statusBarsPadding()
+                    .background(androidx.compose.ui.graphics.Color(0xFFD93A5A), androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                    .padding(horizontal = 12.dp, vertical = 3.dp),
+            )
         }
     }
 }
