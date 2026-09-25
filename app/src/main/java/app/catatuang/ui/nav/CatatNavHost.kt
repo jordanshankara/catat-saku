@@ -1,7 +1,6 @@
 package app.catatuang.ui.nav
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -122,34 +120,39 @@ private fun PlaceholderScreen(title: String) {
 @Composable
 private fun BottomBar(current: String?, onTab: (Tab) -> Unit, onAdd: () -> Unit) {
     val colors = CatatTheme.colors
-    Surface(
-        color = colors.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        shadowElevation = 8.dp,
-    ) {
-        Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().height(72.dp).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    // Tombol [+] berada di Box luar (tidak di-clip bentuk Surface) supaya lingkarannya utuh.
+    Box(Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.padding(top = 22.dp),
+            color = colors.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 8.dp,
         ) {
-            NavItem(Tab.Beranda, current, onTab, Modifier.weight(1f))
-            NavItem(Tab.Riwayat, current, onTab, Modifier.weight(1f))
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .offset(y = (-18).dp)
-                        .size(58.dp)
-                        .clip(CircleShape)
-                        .border(4.dp, colors.background, CircleShape)
-                        .background(colors.success)
-                        .clickable(role = Role.Button, onClick = onAdd)
-                        .semantics { contentDescription = "Catat cepat" },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(LucideIcons.Plus, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
-                }
+            Row(
+                Modifier.fillMaxWidth().navigationBarsPadding().height(72.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NavItem(Tab.Beranda, current, onTab, Modifier.weight(1f))
+                NavItem(Tab.Riwayat, current, onTab, Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
+                NavItem(Tab.Laporan, current, onTab, Modifier.weight(1f))
+                NavItem(Tab.Pengaturan, current, onTab, Modifier.weight(1f))
             }
-            NavItem(Tab.Laporan, current, onTab, Modifier.weight(1f))
-            NavItem(Tab.Pengaturan, current, onTab, Modifier.weight(1f))
+        }
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .size(62.dp)
+                .clip(CircleShape)
+                .background(colors.background)
+                .padding(4.dp)
+                .clip(CircleShape)
+                .background(colors.success)
+                .clickable(role = Role.Button, onClick = onAdd)
+                .semantics { contentDescription = "Catat cepat" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(LucideIcons.Plus, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
         }
     }
 }

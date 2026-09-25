@@ -626,7 +626,7 @@ Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perp
 | D-17 | Status STOK budget 0 | Budget 0 dengan pemakaian > 0 → `lebih`. |
 | D-18 | Transaksi bertanggal masa depan | Diabaikan ledger sampai tanggalnya tiba (dipakai setoran Nabung rutin gaji cepat, R-07). |
 | D-19 | Kewajiban TETAP bulan onboarding | Tidak dibuat (8.12: dianggap sudah dibayar). |
-| D-20 | Ikon launcher | Ikon dompet gaya Lucide putih di latar `primary`. Font Plus Jakarta Sans dibundel sebagai satu file variable font (sumbu `wght`). |
+| D-20 | Ikon launcher | Ikon dompet gaya Lucide putih di latar `primary`. Font Plus Jakarta Sans dibundel sebagai 5 file statis (400/500/600/700/800) yang diturunkan dari variable font resmi dengan fontTools, karena bobot variable font tidak diterapkan di HP uji (teks tampil paling tipis). |
 | D-21 | Hutang besar saat proyeksi | Peringatan R-27 di layar input memakai hutang proyeksi (seolah hari ini ditutup sekarang). |
 | D-22 | Izin tambahan di APK | `app.catatuang.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` ditambahkan otomatis oleh AndroidX Core; ini izin internal berlevel *signature* milik app sendiri, bukan izin yang diminta ke pengguna. Tidak melanggar batas izin bagian 3. |
 | D-23 | Skema Room | Skema ter-export ke `app/schemas/` dan ikut di-commit sebagai dasar migrasi (bab 11). |
