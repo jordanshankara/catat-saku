@@ -2,7 +2,9 @@
 
 Spesifikasi lengkap aplikasi Android pribadi untuk mencatat pengeluaran. Dokumen ini adalah **sumber kebenaran** proyek.
 
-**Versi 2.1.** Perubahan dari versi 1: pemicu Penyesuaian memakai Kebutuhan standar (R-06) · hari ditutup 00:00, notif 22:00 hanya preview (R-21) · Target Cadangan selalu dihitung ulang (R-13) · gaji telat memakai Dana Talangan bayangan (R-04) · kantong Dana Darurat (6.7) · Transport per akhir pekan (R-35–R-38) · Lain-lain jadi pos STOK 150.000, Nabung 160.000 · sisa STOK dicairkan (R-39) · peringatan hutang besar (R-27) · Pakai Tabungan (Rencana) dari layar input (R-59) · tambah/arsip pos (R-95) · PIN 4 digit (8.14) · test diperbarui.
+**Versi 2.2.** Perubahan dari versi 1: pemicu Penyesuaian memakai Kebutuhan standar (R-06) · hari ditutup 00:00, notif 22:00 hanya preview (R-21) · Target Cadangan selalu dihitung ulang (R-13) · gaji telat memakai Dana Talangan bayangan (R-04) · kantong Dana Darurat (6.7) · Transport per akhir pekan (R-35–R-38) · Lain-lain jadi pos STOK 150.000, Nabung 160.000 · sisa STOK dicairkan (R-39) · peringatan hutang besar (R-27) · Pakai Tabungan (Rencana) dari layar input (R-59) · tambah/arsip pos (R-95) · PIN 4 digit (8.14) · test diperbarui.
+
+Perubahan 2.2: enam jawaban akhir Fase 1 dikunci (R-06 usulan, R-23, R-59, 6.10 langkah 1, R-80, 8.12).
 
 Perubahan 2.1 (jawaban klarifikasi): Nabung rutin dicatat saat alokasi aktif (R-55) · reservasi akhir pekan ke-5 berkurang selama jendela terbuka (R-15) · **bulan akuntansi** (R-08) · bulan tanpa gaji menol-kan hutang (6.10 langkah 1) · kewajiban TETAP dibuat tiap tanggal 1 (R-40) · Transport bukan tujuan tambah budget & refund per jendela (6.8, R-37) · R-39 untuk semua STOK non-Transport · pembulatan ke bawah ke ribuan (R-17) · 4 tap dihitung dari Beranda tidak terkunci · perlindungan Recent apps tanpa FLAG_SECURE default (8.14) · teks tile & Tutup Buku · test T-39–T-43 · Log Keputusan (bagian 16).
 
@@ -150,7 +152,7 @@ Kode aturan (R-xx) dipakai di test dan komentar kode.
   - Bulan tanpa gaji sampai Tutup Buku: lihat 6.10 langkah 1.
 - **R-05 Gaji ganda:** jika bulan target sudah punya gaji, tanyakan "Ini gaji tambahan/rapel?" — jika ya, catat sebagai **Pemasukan** (bukan gaji kedua).
 - **R-06 Penyesuaian wajib:** `KebutuhanStandar(M) = Σ HARIAN(jatah × 30) + Σ STOK(budget) + Σ TETAP(estimasi) + Nabung`, memakai nominal pos yang berlaku untuk bulan M (3.300.000 dengan default). Jika `gaji < KebutuhanStandar(M)`, layar **Penyesuaian** wajib muncul sebelum split.
-  - Usulan otomatis: pos TETAP tidak disentuh → budget STOK & jatah HARIAN dipotong proporsional → Nabung dipotong terakhir. Semua angka bisa diedit; tombol lanjut aktif hanya jika KebutuhanStandar hasil penyesuaian ≤ gaji. Hasilnya disimpan sebagai alokasi bulan M.
+  - Usulan otomatis: pos TETAP tidak disentuh → budget STOK & jatah HARIAN dipotong proporsional (tiap baris dibulatkan ke bawah ke ribuan; sisa pembulatan tetap di Saku Sisa) → Nabung dipotong terakhir, **hanya bila** budget STOK & jatah HARIAN sudah 0. Semua angka bisa diedit; tombol lanjut aktif hanya jika KebutuhanStandar hasil penyesuaian ≤ gaji. Hasilnya disimpan sebagai alokasi bulan M.
   - Kekurangan karena **kalender** (hari > 30, Sabtu > 4) **tidak** memicu Penyesuaian — itu tugas Target Cadangan (6.2).
 - **R-07 Nabung rutin aktif bersama alokasi:** transaksi `SAVING_DEPOSIT` Nabung rutin dicatat otomatis pada **tanggal alokasi aktif** — tanggal 1 bulan target untuk gaji cepat (R-03), tanggal input gaji untuk gaji telat (R-04). Bulan tanpa gaji tidak punya setoran Nabung.
 - **R-08 Bulan akuntansi:** setiap transaksi dihitung ke bulan tanggalnya, **kecuali** transaksi Transport di dalam jendela akhir pekan (R-35) → bulan si Sabtu. Riwayat, kunci bulan (R-64), Tutup Buku, laporan, dan verdict memakai bulan akuntansi. Riwayat tetap menampilkan tanggal asli dengan label kecil "dihitung ke {bulan}". Jatah jendela memakai alokasi bulan akuntansi (atau template/talangan bila gajinya belum masuk).
@@ -183,7 +185,7 @@ Contoh wajib (dipakai di test): **Oktober 2026** = 31 hari, 5 Sabtu (3, 10, 17, 
   - Jika `delta ≥ 0`: `bayar = min(delta, hutang)`; `hutang −= bayar`; `SakuSisa += delta − bayar`. (**Hemat melunasi hutang dulu, sisanya ke Saku Sisa.**)
   - Jika `delta < 0`: `hutang += −delta`. Hutang **tidak** otomatis diambil dari kantong mana pun.
 - **R-23 Mode Darurat** (tombol manual di kartu hutang): melunasi hutang sebesar yang dipilih pengguna mengikuti **urutan penutup**:
-  1. Dari **Saku Sisa** lebih dulu (Saku Sisa tidak boleh jadi minus karena aksi ini).
+  1. Dari **Saku Sisa** lebih dulu (Saku Sisa tidak boleh jadi minus karena aksi ini). Nominal dibatasi sebesar hutang saat aksi. Jika kemudian hutang mengecil karena edit transaksi mundur, pelunasan tetap mengurangi Saku Sisa sebesar nominalnya dan hutang berhenti di 0.
   2. Kekurangannya dari **Tabungan**, lalu **Dana Darurat** → layar merah, peringatan keras, **tahan tombol 3 detik**. Tercatat sebagai ambil kantong alasan DARURAT (mempengaruhi verdict).
 - **R-24 Pergantian bulan:** hutang dibawa ke bulan baru (default) dan tetap dilunasi oleh hemat hari berikutnya. Saat Tutup Buku, pengguna boleh memilih melunasi pakai Saku Sisa.
 - **R-25** Hari sebelum pengguna mulai memakai app (sebelum tanggal mulai onboarding) tidak dihitung.
@@ -236,7 +238,7 @@ Contoh wajib (dipakai di test): **Oktober 2026** = 31 hari, 5 Sabtu (3, 10, 17, 
   Uang yang diambil masuk ke Saku Sisa. Aksi manual selalu memakai tahan tombol 3 detik.
 - **R-57** Setelah split, checklist "Sudah transfer Rp X ke rekening tabungan?". Jika belum dicentang, pengingat esok hari 09:00 (maksimal 3 hari berturut-turut). Checklist **hanya pengingat** — tidak membuat transaksi (setoran dicatat oleh R-07).
 - **R-58 Urutan penutup** untuk semua kekurangan (Mode Darurat, Saku Sisa minus saat Tutup Buku, talangan, tanpa gaji): **Saku Sisa → Tabungan → Dana Darurat**. Dana Darurat hanya disentuh jika Tabungan sudah 0, dan layarnya menegaskan "Ini dana darurat terakhir lu".
-- **R-59 Pakai Tabungan (Rencana)** dari layar input: mengambil dari **Tabungan saja** sebesar kekurangan yang membuat SisaBebas < 0 (tahan 3 detik), lalu menyimpan pengeluaran. Alasan RENCANA, tidak memicu BONCOS. Jika Tabungan tidak cukup, tampilkan pesan dan jangan sentuh Dana Darurat.
+- **R-59 Pakai Tabungan (Rencana)** dari layar input: mengambil dari **Tabungan saja** sebesar kekurangan yang membuat SisaBebas < 0 (tahan 3 detik), lalu menyimpan pengeluaran. Nominalnya = kekurangan sampai Sisa bebas kembali 0 (`−SisaBebas` setelah transaksi), termasuk bila Sisa bebas sudah minus sebelumnya. Alasan RENCANA, tidak memicu BONCOS. Jika Tabungan tidak cukup, tampilkan pesan dan jangan sentuh Dana Darurat.
 
 ### 6.8 Pemasukan tambahan
 
@@ -265,7 +267,7 @@ Pemasukan tidak pernah membuka periode baru dan tidak mengubah jatah harian.
 Dipicu tanggal 1 untuk bulan sebelumnya (notifikasi 07:00 + otomatis terbuka saat app dibuka pertama kali tanggal ≥ 1). Bisa ditunda, tetapi Beranda menampilkan pengingat sampai selesai. Langkah berurutan:
 
 0. **"Ada catatan kemarin yang belum masuk?"** → pintasan ke input bertanggal hari terakhir bulan lalu. Jika jendela akhir pekan terakhir belum tertutup, tunggu (R-32).
-1. **Status gaji.** Jika bulan itu tidak pernah punya gaji: tanya "Gajinya masuk tanggal berapa?" (lanjut ke alur Gajian) atau **"Bulan ini tanpa gaji"**. Bulan tanpa gaji: tidak ada setoran Nabung; `SakuSisaAkhir = bawaan − hutang masuk dari bulan lalu + pemasukan − pengeluaran riil`, lalu **semua hutang harian di-nol-kan** (sudah tercakup pengeluaran riil); minusnya ditutup dengan urutan penutup memakai alasan **TANPA_GAJI**.
+1. **Status gaji.** Jika bulan itu tidak pernah punya gaji: tanya "Gajinya masuk tanggal berapa?" (lanjut ke alur Gajian) atau **"Bulan ini tanpa gaji"**. Bulan tanpa gaji: tidak ada setoran Nabung; `SakuSisaAkhir = bawaan − hutang masuk dari bulan lalu + pemasukan − pengeluaran riil`, dengan **pemasukan** = pemasukan ke Saku Sisa (termasuk gaji tambahan & Selisih lebih) + ambil kantong manual − setoran manual ke kantong di bulan itu, lalu **semua hutang harian di-nol-kan** (sudah tercakup pengeluaran riil); minusnya ditutup dengan urutan penutup memakai alasan **TANPA_GAJI**.
 2. **Verdict sementara** (R-80) dengan ringkasan angka. Verdict final ditampilkan di akhir Tutup Buku.
 3. **Cocokkan saldo** (bisa dilewati): "Uang pegangan lu sekarang (dompet + rekening + e-wallet, di luar tabungan & dana darurat) berapa?" → dibandingkan dengan uang pegangan hasil hitung (7.3). Selisih kurang → transaksi **Tidak tercatat** (mengurangi Saku Sisa bulan itu). Selisih lebih → transaksi **Selisih lebih** (menambah Saku Sisa). Verdict dihitung ulang dan ditampilkan lagi.
 4. **Hutang harian tersisa** (per pos): **Bawa ke bulan baru** (default) / **Lunasi pakai Saku Sisa**.
@@ -284,7 +286,7 @@ Dihitung per bulan setelah langkah Tutup Buku 3–6.
 - **R-80** Urutan penentuan:
   1. **TANPA GAJI** jika bulan itu ditandai tanpa gaji (label ini menggantikan verdict lain; tetap tampilkan angka).
   2. **BONCOS Rp X** jika total ambil Tabungan + Dana Darurat alasan DARURAT di bulan itu > 0 (termasuk penutupan Saku Sisa minus dan Mode Darurat). X = total tersebut.
-  3. **PAS-PASAN** jika bukan boncos, dan (Saku Sisa akhir < ambang aman **atau** ada hutang harian yang dibawa).
+  3. **PAS-PASAN** jika bukan boncos, dan (Saku Sisa akhir < ambang aman **atau** ada hutang harian yang dibawa). **Saku Sisa akhir** = saldo setelah langkah 3–5, **sebelum** dipindah ke kantong / dibawa / ditutup di langkah 6.
   4. **BERHASIL NABUNG** selain itu. Tampilkan: Nabung rutin + sisa yang dipindah ke Tabungan/Dana Darurat.
 - **R-81** Kartu verdict selalu menampilkan: pemasukan (gaji + tambahan), pengeluaran riil, tabungan masuk/keluar, **dana darurat terpakai** (baris terpisah jika > 0), hutang dibawa, hasil cocokkan saldo (jika dilakukan).
 
@@ -423,7 +425,7 @@ Mulai Baru:
 2. **Buat PIN 4 digit** (ketik dua kali).
 3. Konfirmasi pos & nominal default (bagian 5), bisa diubah.
 4. Saldo awal: "Uang pegangan lu sekarang berapa?", "Tabungan sekarang berapa?" (contoh 500.000), "Dana darurat sekarang berapa?" (contoh 1.000.000).
-5. **Periode awal** (mulai di tengah bulan): jatah HARIAN dihitung dari hari ini sampai akhir bulan; Transport = jumlah akhir pekan tersisa (termasuk yang sedang berjalan, maks 4) × J; Protein & Lain-lain diprorata `budget × sisaHari ÷ D(M)` (dibulatkan ke bawah ke ribuan, R-17); pos TETAP bulan ini dianggap sudah dibayar; `SakuSisaAwal = uangPegangan − (jatah harian sisa bulan + Transport + STOK prorata)`. Jika minus, tampilkan warning (R-14 berlaku).
+5. **Periode awal** (mulai di tengah bulan): jatah HARIAN dihitung dari hari ini sampai akhir bulan; Transport = jumlah akhir pekan tersisa (termasuk yang sedang berjalan, maks 4) × J; Protein & Lain-lain diprorata `budget × sisaHari ÷ D(M)` (dibulatkan ke bawah ke ribuan, R-17); pos TETAP bulan ini dianggap sudah dibayar; `SakuSisaAwal = uangPegangan − (jatah harian sisa bulan + Transport + STOK prorata)`. Jika minus, tampilkan warning (R-14 berlaku). Gaji bertarget bulan onboarding yang diinput setelah onboarding menambah Saku Sisa bulan itu penuh.
 6. Izin notifikasi → panduan mematikan optimasi baterai untuk app ini (bahasa sederhana, sebut Xiaomi/Oppo/Vivo/Realme).
 7. Pilih folder auto-backup (boleh dilewati).
 
@@ -608,10 +610,10 @@ Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perp
 | ID | Konteks | Keputusan |
 |---|---|---|
 | D-01 | Identitas app | `applicationId`/package `app.catatuang`. Tidak bisa diganti setelah APK pertama ter-install tanpa uninstall. |
-| D-02 | Struktur modul 7.1 | `core/engine` adalah modul Gradle `:core:engine` di root repo (Kotlin/JVM murni, tanpa Android). Sisanya (data/, feature/, notify/, …) adalah package di `:app`. `:app` hanya disertakan bila Android SDK terdeteksi, dan tiap modul memuat plugin-nya sendiri, supaya engine bisa di-build & dites tanpa Google Maven. |
-| D-03 | Versi library Google Maven | Environment build pertama memblokir `dl.google.com`, jadi versi AGP 8.13.0, Compose BOM 2025.09.00, Room 2.7.2, DataStore 1.1.7, Navigation 2.9.4, dll. dipilih tanpa verifikasi. Wajib dicek & disesuaikan saat pertama kali build dengan SDK. Kotlin 2.2.20, KSP 2.2.20-2.0.4, kotlinx.serialization 1.9.0, coroutines 1.10.2 sudah terverifikasi. |
+| D-02 | Struktur modul 7.1 | `core/engine` adalah modul Gradle `:core:engine` di root repo (Kotlin/JVM murni, tanpa Android). Sisanya (data/, feature/, notify/, …) adalah package di `:app`. `:app` hanya disertakan bila Android SDK terdeteksi (`local.properties`/`ANDROID_HOME`). Semua plugin dideklarasikan di root dengan `apply false`. |
+| D-03 | Toolchain | Gradle 9.8.0, AGP 9.4.1 (Kotlin bawaan AGP, tanpa plugin `kotlin-android`), Kotlin 2.4.20, KSP 2.3.12, Compose BOM 2026.09.00, Room 2.8.5, DataStore 1.2.1, Navigation 2.10.2, kotlinx.serialization 1.11.0, coroutines 1.11.0. Semua terverifikasi & ter-build. |
 | D-04 | Repositori Maven | Mirror Maven Central milik Google (`maven-central.storage-download.googleapis.com`) dipasang paling depan karena Maven Central sering membalas 429; Maven Central tetap sebagai cadangan. |
-| D-05 | JDK 17 | Bytecode ditargetkan Java 17 (`jvmTarget`/`targetCompatibility` 17), boleh di-build dengan JDK ≥ 17. |
+| D-05 | JDK 17 | Bytecode ditargetkan Java 17 (`jvmTarget`/`targetCompatibility` 17), boleh di-build dengan JDK ≥ 17. compileSdk/targetSdk = 37 (Android 17, platform stabil terbaru saat Fase 0). |
 | D-06 | Letak format data & backup | Record data (7.4) dan codec backup JSON (bab 11) ditulis Kotlin murni di `core/engine` (package `store`) supaya T-25 bisa dites tanpa Android. `data/` hanya memetakan entity Room ↔ record 1:1. |
 | D-07 | Kolom tambahan | `tx` ditambah `routine` (Nabung rutin, R-07), `closingOf` (transaksi Tutup Buku), `incomeKind`, `testMode` (Mode Uji). Nominal pos berversi disimpan di tabel `category_amount` (R-95); di JSON backup, nominal ada di dalam tiap `categories[].amounts`. |
 | D-08 | Transaksi Tutup Buku | Dicatat dengan tanggal saat dibuat + `closingOf = bulan yang ditutup`; bulan akuntansinya bulan yang ditutup, diproses setelah bulan itu berakhir. |
@@ -626,5 +628,30 @@ Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perp
 | D-17 | Status STOK budget 0 | Budget 0 dengan pemakaian > 0 → `lebih`. |
 | D-18 | Transaksi bertanggal masa depan | Diabaikan ledger sampai tanggalnya tiba (dipakai setoran Nabung rutin gaji cepat, R-07). |
 | D-19 | Kewajiban TETAP bulan onboarding | Tidak dibuat (8.12: dianggap sudah dibayar). |
-| D-20 | Ikon launcher | Ikon dompet gaya Lucide putih di latar `primary`. Font Plus Jakarta Sans dibundel sebagai satu file variable font (sumbu `wght`). |
+| D-20 | Ikon launcher | Ikon dompet gaya Lucide putih di latar `primary`. Font Plus Jakarta Sans dibundel sebagai 5 file statis (400/500/600/700/800) yang diturunkan dari variable font resmi dengan fontTools, karena bobot variable font tidak diterapkan di HP uji (teks tampil paling tipis). |
 | D-21 | Hutang besar saat proyeksi | Peringatan R-27 di layar input memakai hutang proyeksi (seolah hari ini ditutup sekarang). |
+| D-22 | Izin tambahan di APK | `app.catatuang.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` ditambahkan otomatis oleh AndroidX Core; ini izin internal berlevel *signature* milik app sendiri, bukan izin yang diminta ke pengguna. Tidak melanggar batas izin bagian 3. |
+| D-23 | Skema Room | Skema ter-export ke `app/schemas/` dan ikut di-commit sebagai dasar migrasi (bab 11). |
+| D-24 | Test UI | Robolectric 4.17 + Compose UI Test (JUnit4) dipakai **hanya untuk test JVM** (tidak ikut APK). Test UI berjalan di SDK 35 karena Robolectric SDK 36 belum cocok dengan JDK 21. Screenshot tiap layar disimpan ke `build/screenshots/`. |
+| D-25 | Bulan gaji di Riwayat | Riwayat & kunci bulan memakai `recordMonth`: gaji tampil di bulan tanggal diterimanya (R-08), walau engine memakainya untuk bulan target. |
+| D-26 | Edit dari Riwayat | Yang bisa diedit/dihapus langsung hanya pengeluaran, pengembalian, dan pemasukan. Transaksi buatan alur (gaji, Nabung rutin, ambil/setor kantong, pelunasan, Tutup Buku) hanya bisa diubah lewat alurnya. |
+| D-27 | Chip hero | Chip hutang berlabel "Hutang harian" karena nilainya total hutang semua pos HARIAN (bukan hanya Makan). Baris status Sisa bebas (R-16) selalu tampil di kartu hero. |
+| D-28 | Tombol fitur fase berikutnya | Tombol yang fasenya belum dibuat tetap tampil sesuai aturan tampilnya; saat diketuk menampilkan pesan "dibuat di Fase N". Status setelah Fase 3: Gajian, Pemasukan, dan "Pakai Tabungan (Rencana)" sudah aktif; banner Tutup Buku menunggu Fase 4; "Pulihkan dari Backup" nonaktif sampai Fase 7. |
+| D-29 | Mode Darurat | Dibuat di Fase 2 karena tombolnya bagian kartu hutang Detail Harian (8.3). Nominal dibatasi sebesar hutang; porsi dari kantong wajib tahan 3 detik di layar merah. |
+| D-30 | PIN | PBKDF2WithHmacSHA256, 120.000 iterasi, salt 16 byte. Hitungan salah PIN disimpan di memori (ter-reset saat app ditutup paksa). Numpad PIN tanpa tombol "000". |
+| D-31 | Urungkan | Selain setelah simpan (R-62), snackbar "Urungkan" 5 detik juga muncul setelah edit, hapus, dan Mode Darurat. Kartu feedback bisa diketuk untuk membuka detail pos. |
+| D-32 | Status tile STOK | Teks "Terpakai Rp X / Rp Y" diberi awalan "Waspada · " / "Lebih · " saat statusnya bukan normal (prinsip 3). |
+| D-33 | Tombol notifikasi Beranda | Membuka daftar pengingat aktif yang diturunkan dari ledger (hutang besar, Saku Sisa minus, talangan habis, Tutup Buku tertunda, cadangan belum terkumpul). |
+| D-34 | Kewajiban TETAP | Di Fase 2 baris `fixed_obligation` belum dibuat. Mulai Fase 3 dibuat otomatis (lihat D-38). |
+| D-35 | Gaji bulan onboarding (8.12) | Tanpa preview split, tanpa alokasi baru, dan tanpa setoran Nabung rutin; seluruh gaji menambah Saku Sisa bulan itu. |
+| D-36 | Gaji ganda (R-05) | Dicatat sebagai `SALARY` bertanda `incomeKind` (tampil "Gaji tambahan {bulan}"), dihitung sebagai pemasukan ke Saku Sisa **bulan target**, tanpa Nabung rutin. |
+| D-37 | Ubah alokasi di preview split | Tombol "Ubah alokasi" membuka layar yang sama dengan Penyesuaian (untuk meninjau pos baru, R-95). Syaratnya sama dengan R-06: tombol lanjut aktif hanya jika KebutuhanStandar hasil ubahan ≤ gaji. |
+| D-38 | Pembuatan kewajiban TETAP (R-40) | Repository membuat baris BELUM BAYAR untuk bulan berjalan begitu bulan itu dimulai (dicek setiap data berubah). Estimasi baris yang belum dibayar mengikuti alokasi terbaru, misalnya setelah gaji telat masuk. |
+| D-39 | Tata letak Beranda Fase 3 | Tagihan tetap yang sudah/lewat jatuh tempo tampil di atas grid kategori; tagihan lain dan kartu Tabungan/Dana Darurat di bawah grid. Grid tetap di posisi yang sama supaya alur 4 tap tidak berubah. Kartu kantong membuka layar 8.8. |
+| D-40 | Batas ambil manual | Ambil Tabungan/Dana Darurat manual dibatasi saldo kantong sebenarnya (bukan saldo tampil setelah talangan bayangan). |
+| D-41 | Tanggal ambil R-59 | Pengambilan "Pakai Tabungan (Rencana)" diberi tanggal di bulan akuntansi pengeluarannya: Transport Minggu 1 Nov (akhir pekan Oktober) → 31 Okt; Transport Jumat 30 Apr (akhir pekan Mei) → 1 Mei. |
+| D-42 | Banner cadangan tanggal 1 (R-14 butir 2) | Status "sudah ditutup" disimpan per bulan di DataStore dan tidak ikut backup. |
+| D-43 | Checklist transfer (R-57) | Sampai notifikasi Fase 5 selesai, pengingat "Udah transfer Rp X ke tabungan?" tampil di daftar pengingat (tombol lonceng) dengan tombol "tandai selesai". |
+| D-44 | Tahan 3 detik | Setor manual tidak perlu tahan 3 detik karena tidak mengurangi kantong. Semua ambil manual (RENCANA maupun DARURAT), "Tutup sekarang" (R-52), dan "Pakai Tabungan" wajib tahan 3 detik. |
+| D-45 | Urungkan Fase 3 | Snackbar "Urungkan" 5 detik juga muncul setelah konfirmasi gaji, bayar pos tetap, pemasukan, dan setor/ambil kantong. |
+| D-46 | Tanggal pemasukan | Sheet Pemasukan punya chip tanggal (default hari ini), dibatasi ke bulan yang belum ditutup, karena Pengembalian wajib berlaku "pada tanggal yang dipilih" (6.8). |

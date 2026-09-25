@@ -1,2 +1,7 @@
-// Sengaja kosong: tiap modul menerapkan plugin-nya sendiri, supaya :core:engine
-// bisa di-build tanpa Google Maven (plugin Android hanya dimuat oleh :app). Lihat D-02.
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.ksp) apply false
+}

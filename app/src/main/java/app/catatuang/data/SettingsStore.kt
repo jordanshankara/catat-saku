@@ -39,6 +39,13 @@ class SettingsStore(private val store: DataStore<Preferences>) {
     /** Bulan split terakhir yang checklist transfer-nya belum dicentang (R-57), dan berapa kali sudah diingatkan. */
     val transferChecklist: Flow<Pair<String?, Int>> = store.data.map { it[CHECKLIST_MONTH] to (it[CHECKLIST_REMINDERS] ?: 0) }
 
+    /** Bulan yang banner cadangan tanggal 1-nya sudah ditutup (R-14 butir 2). */
+    val cadanganBannerDismissed: Flow<String?> = store.data.map { it[CADANGAN_DISMISSED] }
+
+    suspend fun dismissCadanganBanner(month: String) {
+        store.edit { it[CADANGAN_DISMISSED] = month }
+    }
+
     suspend fun current(): SettingsRecord = settings.first()
 
     suspend fun update(transform: (SettingsRecord) -> SettingsRecord) {
@@ -91,7 +98,8 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         p[SAFE_THRESHOLD] = s.safeThreshold
         p[EMERGENCY_TARGET] = s.emergencyTarget
         p[THEME] = s.theme
-        if (s.startDate == null) p.remove(START_DATE) else p[START_DATE] = s.startDate
+        val start = s.startDate
+        if (start == null) p.remove(START_DATE) else p[START_DATE] = start
         p[CASH_START] = s.cashStart
         p[SAVINGS_START] = s.savingsStart
         p[EMERGENCY_START] = s.emergencyStart
@@ -120,5 +128,6 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val BACKUP_URI = stringPreferencesKey("backup_folder_uri")
         val CHECKLIST_MONTH = stringPreferencesKey("transfer_checklist_month")
         val CHECKLIST_REMINDERS = intPreferencesKey("transfer_checklist_reminders")
+        val CADANGAN_DISMISSED = stringPreferencesKey("cadangan_banner_dismissed")
     }
 }

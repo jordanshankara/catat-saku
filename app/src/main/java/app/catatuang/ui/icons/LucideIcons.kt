@@ -44,6 +44,7 @@ object LucideIcons {
     val Check by lazy { icon("check", "M5 12l5 5 9-10") }
     val AlertTriangle by lazy { icon("alert", "M12 3l10 18H2z", "M12 10v5M12 18h.01") }
     val Calendar by lazy { icon("calendar", "M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z", "M3 10h18M8 3v4M16 3v4") }
+    val Close by lazy { icon("close", "M18 6L6 18M6 6l12 12") }
     val Delete by lazy { icon("delete", "M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z", "M12 9l6 6M18 9l-6 6") }
 
     private fun circle(cx: Float, cy: Float, r: Float): String =

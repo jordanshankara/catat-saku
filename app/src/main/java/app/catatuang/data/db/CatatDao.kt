@@ -77,6 +77,43 @@ interface CatatDao {
         insertDayMarks(dayMarks); insertClosures(closures)
     }
 
+    /**
+     * Konfirmasi gaji (8.6): transaksi gaji + Nabung rutin, alokasi bulan target, dan `month_plan`
+     * dalam satu transaksi database. [allocations] null = tidak mengubah alokasi (gaji tambahan / bulan onboarding).
+     */
+    @Transaction
+    suspend fun saveSalary(txs: List<TxEntity>, month: String, allocations: List<MonthAllocationEntity>?, plan: MonthPlanEntity?): List<Long> {
+        val ids = txs.map { insertTx(it) }
+        if (allocations != null) { deleteAllocations(month); upsertAllocations(allocations) }
+        if (plan != null) upsertMonthPlan(plan.copy(salaryTxId = ids.first()))
+        return ids
+    }
+
+    @Query("DELETE FROM month_plan WHERE yearMonth = :yearMonth") suspend fun deleteMonthPlan(yearMonth: String)
+
+    /** Urungkan konfirmasi gaji. */
+    @Transaction
+    suspend fun undoSalary(ids: List<Long>, month: String, allocations: List<MonthAllocationEntity>?, plan: MonthPlanEntity?) {
+        ids.forEach { deleteTx(it) }
+        deleteAllocations(month)
+        if (allocations != null) upsertAllocations(allocations)
+        if (plan != null) upsertMonthPlan(plan) else deleteMonthPlan(month)
+    }
+
+    /** R-41: bayar pos TETAP — transaksi + status LUNAS kewajibannya. */
+    @Transaction
+    suspend fun payFixed(tx: TxEntity, obligation: FixedObligationEntity): Long {
+        val id = insertTx(tx)
+        upsertFixedObligations(listOf(obligation.copy(status = "PAID", paidTxId = id)))
+        return id
+    }
+
+    @Transaction
+    suspend fun unpayFixed(txId: Long, obligation: FixedObligationEntity) {
+        deleteTx(txId)
+        upsertFixedObligations(listOf(obligation.copy(status = "UNPAID", paidTxId = null)))
+    }
+
     /** Beberapa transaksi dalam satu transaksi database (mis. Mode Darurat, 7.3). */
     @Transaction
     suspend fun insertTxBatch(items: List<TxEntity>): List<Long> = items.map { insertTx(it) }

@@ -68,6 +68,14 @@ fun accountingMonth(tx: Tx, isWeekendCategory: (Long) -> Boolean): YearMonth {
 fun accountingMonth(tx: Tx, categories: List<Category>): YearMonth =
     accountingMonth(tx) { id -> categories.any { it.id == id && it.weekendMode } }
 
-/** R-64 + R-08: transaksi terkunci jika bulan akuntansinya sudah Tutup Buku. */
+/**
+ * R-08 untuk Riwayat & kunci bulan: bulan tanggal transaksi, kecuali Transport di dalam jendela akhir pekan
+ * (bulan si Sabtu) dan transaksi Tutup Buku (bulan yang ditutup, D-08). Gaji tetap di bulan tanggal
+ * diterimanya, walau engine memakainya untuk bulan target (D-25).
+ */
+fun recordMonth(tx: Tx, categories: List<Category>): YearMonth =
+    if (tx.type == TxType.SALARY && tx.closingOf == null) YearMonth.from(tx.date) else accountingMonth(tx, categories)
+
+/** R-64 + R-08: transaksi terkunci jika bulannya (menurut [recordMonth]) sudah Tutup Buku. */
 fun isLocked(tx: Tx, categories: List<Category>, closedMonths: Set<YearMonth>): Boolean =
-    accountingMonth(tx, categories) in closedMonths
+    recordMonth(tx, categories) in closedMonths
