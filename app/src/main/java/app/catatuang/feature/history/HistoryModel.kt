@@ -1,6 +1,8 @@
 package app.catatuang.feature.history
 
 import app.catatuang.engine.Category
+import app.catatuang.engine.Destination
+import app.catatuang.engine.IncomeKind
 import app.catatuang.engine.Pot
 import app.catatuang.engine.Tx
 import app.catatuang.engine.TxType
@@ -26,8 +28,12 @@ fun txTitle(tx: Tx, categories: List<Category>): String {
     return when (tx.type) {
         TxType.EXPENSE -> cat
         TxType.REFUND -> "Pengembalian · $cat"
-        TxType.SALARY -> "Gaji ${tx.refYearMonth?.let { monthName(it) } ?: ""}".trim()
-        TxType.INCOME -> "Pemasukan" + (tx.pot?.let { " → ${potName(it)}" } ?: "")
+        TxType.SALARY -> (if (tx.incomeKind != null) "Gaji tambahan " else "Gaji ") + (tx.refYearMonth?.let { monthName(it) } ?: "")
+        TxType.INCOME -> incomeName(tx.incomeKind) + when {
+            tx.pot != null -> " → ${potName(tx.pot)}"
+            tx.destination == Destination.CATEGORY -> " → budget $cat"
+            else -> ""
+        }
         TxType.FIXED_PAYMENT -> "Bayar $cat"
         TxType.SAVING_DEPOSIT -> if (tx.routine) "Nabung rutin" else "Setor ${potName(tx.pot)}"
         TxType.SAVING_WITHDRAW -> "Ambil ${potName(tx.pot)} · " + when (tx.reason) {
@@ -41,6 +47,13 @@ fun txTitle(tx: Tx, categories: List<Category>): String {
         TxType.SURPLUS_FOUND -> "Selisih lebih"
         TxType.CORRECTION -> "Koreksi $cat"
     }
+}
+
+private fun incomeName(kind: IncomeKind?) = when (kind) {
+    IncomeKind.PEMBERIAN -> "Pemberian"
+    IncomeKind.SAMPINGAN -> "Penghasilan sampingan"
+    IncomeKind.THR_BONUS -> "THR / Bonus"
+    else -> "Pemasukan"
 }
 
 /** Hanya transaksi harian yang diedit/dihapus langsung dari Riwayat; sisanya lewat alurnya (D-26). */

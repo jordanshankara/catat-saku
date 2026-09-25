@@ -30,7 +30,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -261,19 +263,21 @@ fun FeedbackCard(text: String, tone: Tone, modifier: Modifier = Modifier, onClic
  * Wajib untuk semua aksi yang mengurangi Tabungan atau Dana Darurat.
  */
 @Composable
-fun HoldToConfirmButton(text: String, onConfirmed: () -> Unit, modifier: Modifier = Modifier, danger: Boolean = true) {
+fun HoldToConfirmButton(text: String, onConfirmed: () -> Unit, modifier: Modifier = Modifier, danger: Boolean = true, enabled: Boolean = true) {
     val c = CatatTheme.colors
     val progress = remember { Animatable(0f) }
+    val confirm by rememberUpdatedState(onConfirmed)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val color = if (danger) c.danger else c.primary
+    val color = (if (danger) c.danger else c.primary).let { if (enabled) it else it.copy(alpha = 0.4f) }
     Row(
         modifier.fillMaxWidth().heightIn(min = 60.dp).clip(CatatShapes.button).background(color)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = "$text. Tahan 3 detik untuk konfirmasi"
             }
-            .pointerInput(Unit) {
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
                 awaitEachGesture {
                     awaitFirstDown()
                     var job: Job? = null
@@ -281,7 +285,7 @@ fun HoldToConfirmButton(text: String, onConfirmed: () -> Unit, modifier: Modifie
                         progress.snapTo(0f)
                         progress.animateTo(1f, tween(3_000, easing = LinearEasing))
                         vibrate(context)
-                        onConfirmed()
+                        confirm()
                     }
                     waitForUpOrCancellation()
                     if (progress.value < 1f) {

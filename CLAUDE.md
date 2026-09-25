@@ -636,10 +636,22 @@ Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perp
 | D-25 | Bulan gaji di Riwayat | Riwayat & kunci bulan memakai `recordMonth`: gaji tampil di bulan tanggal diterimanya (R-08), walau engine memakainya untuk bulan target. |
 | D-26 | Edit dari Riwayat | Yang bisa diedit/dihapus langsung hanya pengeluaran, pengembalian, dan pemasukan. Transaksi buatan alur (gaji, Nabung rutin, ambil/setor kantong, pelunasan, Tutup Buku) hanya bisa diubah lewat alurnya. |
 | D-27 | Chip hero | Chip hutang berlabel "Hutang harian" karena nilainya total hutang semua pos HARIAN (bukan hanya Makan). Baris status Sisa bebas (R-16) selalu tampil di kartu hero. |
-| D-28 | Tombol fitur fase berikutnya | Banner Gajian, tombol Pemasukan, dan banner Tutup Buku sudah tampil sesuai aturan tampilnya; saat diketuk menampilkan pesan "dibuat di Fase N" sampai fasenya selesai. "Pulihkan dari Backup" nonaktif sampai Fase 7. Tombol "Pakai Tabungan (Rencana)" (R-59) menyusul di Fase 3; peringatan R-51 sudah tampil. |
+| D-28 | Tombol fitur fase berikutnya | Tombol yang fasenya belum dibuat tetap tampil sesuai aturan tampilnya; saat diketuk menampilkan pesan "dibuat di Fase N". Status setelah Fase 3: Gajian, Pemasukan, dan "Pakai Tabungan (Rencana)" sudah aktif; banner Tutup Buku menunggu Fase 4; "Pulihkan dari Backup" nonaktif sampai Fase 7. |
 | D-29 | Mode Darurat | Dibuat di Fase 2 karena tombolnya bagian kartu hutang Detail Harian (8.3). Nominal dibatasi sebesar hutang; porsi dari kantong wajib tahan 3 detik di layar merah. |
 | D-30 | PIN | PBKDF2WithHmacSHA256, 120.000 iterasi, salt 16 byte. Hitungan salah PIN disimpan di memori (ter-reset saat app ditutup paksa). Numpad PIN tanpa tombol "000". |
 | D-31 | Urungkan | Selain setelah simpan (R-62), snackbar "Urungkan" 5 detik juga muncul setelah edit, hapus, dan Mode Darurat. Kartu feedback bisa diketuk untuk membuka detail pos. |
 | D-32 | Status tile STOK | Teks "Terpakai Rp X / Rp Y" diberi awalan "Waspada · " / "Lebih · " saat statusnya bukan normal (prinsip 3). |
 | D-33 | Tombol notifikasi Beranda | Membuka daftar pengingat aktif yang diturunkan dari ledger (hutang besar, Saku Sisa minus, talangan habis, Tutup Buku tertunda, cadangan belum terkumpul). |
-| D-34 | Kewajiban TETAP | Baris `fixed_obligation` belum dibuat otomatis di Fase 2 (engine menurunkan kewajiban dari alokasi, jadi hitungan tidak terpengaruh). Pembuatan tiap tanggal 1 (R-40) dipasang bersama alur Pos TETAP di Fase 3. |
+| D-34 | Kewajiban TETAP | Di Fase 2 baris `fixed_obligation` belum dibuat. Mulai Fase 3 dibuat otomatis (lihat D-38). |
+| D-35 | Gaji bulan onboarding (8.12) | Tanpa preview split, tanpa alokasi baru, dan tanpa setoran Nabung rutin; seluruh gaji menambah Saku Sisa bulan itu. |
+| D-36 | Gaji ganda (R-05) | Dicatat sebagai `SALARY` bertanda `incomeKind` (tampil "Gaji tambahan {bulan}"), dihitung sebagai pemasukan ke Saku Sisa **bulan target**, tanpa Nabung rutin. |
+| D-37 | Ubah alokasi di preview split | Tombol "Ubah alokasi" membuka layar yang sama dengan Penyesuaian (untuk meninjau pos baru, R-95). Syaratnya sama dengan R-06: tombol lanjut aktif hanya jika KebutuhanStandar hasil ubahan ≤ gaji. |
+| D-38 | Pembuatan kewajiban TETAP (R-40) | Repository membuat baris BELUM BAYAR untuk bulan berjalan begitu bulan itu dimulai (dicek setiap data berubah). Estimasi baris yang belum dibayar mengikuti alokasi terbaru, misalnya setelah gaji telat masuk. |
+| D-39 | Tata letak Beranda Fase 3 | Tagihan tetap yang sudah/lewat jatuh tempo tampil di atas grid kategori; tagihan lain dan kartu Tabungan/Dana Darurat di bawah grid. Grid tetap di posisi yang sama supaya alur 4 tap tidak berubah. Kartu kantong membuka layar 8.8. |
+| D-40 | Batas ambil manual | Ambil Tabungan/Dana Darurat manual dibatasi saldo kantong sebenarnya (bukan saldo tampil setelah talangan bayangan). |
+| D-41 | Tanggal ambil R-59 | Pengambilan "Pakai Tabungan (Rencana)" diberi tanggal di bulan akuntansi pengeluarannya: Transport Minggu 1 Nov (akhir pekan Oktober) → 31 Okt; Transport Jumat 30 Apr (akhir pekan Mei) → 1 Mei. |
+| D-42 | Banner cadangan tanggal 1 (R-14 butir 2) | Status "sudah ditutup" disimpan per bulan di DataStore dan tidak ikut backup. |
+| D-43 | Checklist transfer (R-57) | Sampai notifikasi Fase 5 selesai, pengingat "Udah transfer Rp X ke tabungan?" tampil di daftar pengingat (tombol lonceng) dengan tombol "tandai selesai". |
+| D-44 | Tahan 3 detik | Setor manual tidak perlu tahan 3 detik karena tidak mengurangi kantong. Semua ambil manual (RENCANA maupun DARURAT), "Tutup sekarang" (R-52), dan "Pakai Tabungan" wajib tahan 3 detik. |
+| D-45 | Urungkan Fase 3 | Snackbar "Urungkan" 5 detik juga muncul setelah konfirmasi gaji, bayar pos tetap, pemasukan, dan setor/ambil kantong. |
+| D-46 | Tanggal pemasukan | Sheet Pemasukan punya chip tanggal (default hari ini), dibatasi ke bulan yang belum ditutup, karena Pengembalian wajib berlaku "pada tanggal yang dipilih" (6.8). |

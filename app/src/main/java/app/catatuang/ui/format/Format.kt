@@ -57,6 +57,10 @@ fun shortDate(date: LocalDate): String {
     return "$day ${date.dayOfMonth} $month"
 }
 
+/** "1 Okt". */
+fun dayMonth(date: LocalDate): String =
+    "${date.dayOfMonth} ${date.month.getDisplayName(TextStyle.SHORT, ID_LOCALE).removeSuffix(".")}"
+
 /** "September", "Oktober 2027" (tahun hanya bila beda dengan [reference]). */
 fun monthName(ym: YearMonth, reference: YearMonth? = null): String {
     val name = ym.month.getDisplayName(TextStyle.FULL_STANDALONE, ID_LOCALE).replaceFirstChar { it.uppercase() }

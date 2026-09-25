@@ -59,7 +59,13 @@ import app.catatuang.feature.history.EditTxSheet
 import app.catatuang.feature.history.HistoryScreen
 import app.catatuang.feature.home.HomeScreen
 import app.catatuang.feature.home.buildHomeUi
+import app.catatuang.feature.fixed.FixedDue
+import app.catatuang.feature.fixed.FixedPayContent
+import app.catatuang.feature.income.IncomeContent
 import app.catatuang.feature.input.InputContent
+import app.catatuang.feature.salary.SalaryScreen
+import app.catatuang.feature.savings.SavingsScreen
+import app.catatuang.ui.components.SecondaryButton
 import app.catatuang.ui.components.CategoryIcon
 import app.catatuang.ui.components.NoticeBox
 import app.catatuang.ui.components.Tone
@@ -95,6 +101,11 @@ fun MainScaffold(vm: LedgerViewModel) {
     var inputFor by rememberSaveable { mutableStateOf<Long?>(null) }
     var editTx by rememberSaveable { mutableStateOf<Long?>(null) }
     var showNotices by rememberSaveable { mutableStateOf(false) }
+    var showIncome by rememberSaveable { mutableStateOf(false) }
+    var payFixed by remember { mutableStateOf<FixedDue?>(null) }
+    val checklist by vm.transferChecklist.collectAsStateWithLifecycle()
+    val cadanganDismissed by vm.cadanganBannerDismissed.collectAsStateWithLifecycle()
+    fun homeUi() = buildHomeUi(ready.settings.nickname, ready.input, ready.ledger, ready.today, checklist.first, cadanganDismissed)
     var feedback by remember { mutableStateOf<Pair<String, Tone>?>(null) }
     var feedbackCategory by remember { mutableStateOf<Long?>(null) }
 
@@ -105,8 +116,8 @@ fun MainScaffold(vm: LedgerViewModel) {
                 feedbackCategory = e.detailCategoryId
                 launch { delay(3_000); feedback = null }
             }
-            val result = snackbar.showSnackbar(e.snackbar, actionLabel = e.undo?.let { "Urungkan" }, duration = SnackbarDuration.Indefinite, withDismissAction = false)
-                .let { it }
+            val message = e.snackbar ?: return@collect
+            val result = snackbar.showSnackbar(message, actionLabel = e.undo?.let { "Urungkan" }, duration = SnackbarDuration.Indefinite, withDismissAction = false)
             if (result == SnackbarResult.ActionPerformed) {
                 feedback = null
                 e.undo?.invoke()
@@ -147,7 +158,7 @@ fun MainScaffold(vm: LedgerViewModel) {
     ) { padding ->
         NavHost(nav, startDestination = Tab.Beranda.route, modifier = Modifier.padding(bottom = if (isTab) padding.calculateBottomPadding() else 0.dp)) {
             composable(Tab.Beranda.route) {
-                val ui = buildHomeUi(ready.settings.nickname, ready.input, ready.ledger, ready.today)
+                val ui = homeUi()
                 HomeScreen(
                     ui = ui,
                     feedback = feedback,
@@ -156,11 +167,18 @@ fun MainScaffold(vm: LedgerViewModel) {
                     onTileLong = ::openDetail,
                     onNotifications = { showNotices = true },
                     onNotYet = { msg -> scope.launch { snackbar.showSnackbar(msg) } },
+                    onSalary = { nav.navigate("salary") },
+                    onIncome = { showIncome = true },
+                    onSavings = { nav.navigate("savings") },
+                    onPayFixed = { payFixed = it },
+                    onDismissCadangan = { vm.dismissCadanganBanner(ready.ledger.currentMonth) },
                 )
             }
             composable(Tab.Riwayat.route) { HistoryScreen(ready, onEdit = { editTx = it }) }
             composable(Tab.Laporan.route) { Placeholder("Laporan", "Laporan mingguan & bulanan dibuat di Fase 6.") }
             composable(Tab.Pengaturan.route) { Placeholder("Pengaturan", "Pengaturan dibuat di fase berikutnya.") }
+            composable("salary") { SalaryScreen(ready, vm, onDone = { nav.popBackStack() }) }
+            composable("savings") { SavingsScreen(ready, vm, onBack = { nav.popBackStack() }) }
             composable("detail/daily/{id}") { entry ->
                 val id = entry.arguments?.getString("id")?.toLongOrNull()
                 val cat = ready.input.categories.firstOrNull { it.id == id }
@@ -206,12 +224,39 @@ fun MainScaffold(vm: LedgerViewModel) {
         if (tx == null) editTx = null else EditTxSheet(tx, ready, vm, onDismiss = { editTx = null })
     }
 
+    if (showIncome) {
+        ModalBottomSheet(
+            onDismissRequest = { showIncome = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = CatatShapes.sheet,
+            containerColor = colors.surface,
+        ) {
+            IncomeContent(ready, vm, onSaved = {
+                showIncome = false
+                if (current != Tab.Beranda.route) nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+            })
+        }
+    }
+
+    payFixed?.let { due ->
+        ModalBottomSheet(
+            onDismissRequest = { payFixed = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = CatatShapes.sheet,
+            containerColor = colors.surface,
+        ) { FixedPayContent(due, ready, vm, onDone = { payFixed = null }) }
+    }
+
     if (showNotices) {
-        val ui = buildHomeUi(ready.settings.nickname, ready.input, ready.ledger, ready.today)
+        val ui = homeUi()
         ModalBottomSheet(onDismissRequest = { showNotices = false }, shape = CatatShapes.sheet, containerColor = colors.surface) {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Pengingat aktif", style = CatatType.cardTitle, color = colors.textPrimary)
-                if (ui.notices.isEmpty()) Text("Tidak ada. Semua aman.", style = CatatType.bodySmall, color = colors.textSecondary)
+                if (ui.notices.isEmpty() && ui.checklist == null) Text("Tidak ada. Semua aman.", style = CatatType.bodySmall, color = colors.textSecondary)
+                ui.checklist?.let { text ->
+                    NoticeBox(text, Tone.SAVINGS)
+                    SecondaryButton("Sudah transfer · tandai selesai", onClick = { vm.setTransferChecklist(null) })
+                }
                 ui.notices.forEach { (text, tone) -> NoticeBox(text, tone) }
                 Spacer(Modifier.height(12.dp))
             }

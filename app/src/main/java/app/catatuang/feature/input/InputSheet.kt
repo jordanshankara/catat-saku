@@ -49,6 +49,8 @@ import app.catatuang.data.AppState
 import app.catatuang.engine.Category
 import app.catatuang.engine.CategoryKind
 import app.catatuang.engine.Impact
+import app.catatuang.engine.ImpactWarning
+import app.catatuang.engine.useSavingsTransactions
 import app.catatuang.engine.Slot
 import app.catatuang.engine.defaultSlot
 import app.catatuang.engine.isSuspiciousAmount
@@ -60,7 +62,10 @@ import app.catatuang.engine.weekendWindowOf
 import app.catatuang.feature.common.LedgerViewModel
 import app.catatuang.ui.components.CategoryIcon
 import app.catatuang.ui.components.DateChip
+import app.catatuang.ui.components.HoldToConfirmButton
 import app.catatuang.ui.components.NoticeBox
+import app.catatuang.ui.components.SecondaryButton
+import app.catatuang.ui.components.Tone
 import app.catatuang.ui.components.Numpad
 import app.catatuang.ui.components.PrimaryButton
 import app.catatuang.ui.components.QuickAmountChips
@@ -97,6 +102,7 @@ fun InputContent(
     var confirmTypo by remember { mutableStateOf<Long?>(null) }
     var pickDate by remember { mutableStateOf(false) }
     var impact by remember { mutableStateOf<Impact?>(null) }
+    var useSavings by remember { mutableStateOf(false) }
 
     val closed = ready.ledger.months.values.filter { it.closed }.map { it.month }.toSet()
     val quick = remember(ready.input.transactions, category.id) { quickAmounts(ready.input.transactions, category, today) }
@@ -161,6 +167,13 @@ fun InputContent(
 
         val lines = impact?.takeIf { amount > 0 }?.let { previewLines(category, it, date, today) }.orEmpty()
         lines.forEach { (text, tone) -> NoticeBox(text, tone) }
+        impact?.takeIf { amount > 0 && ImpactWarning.USES_RESERVE in it.warnings && it.useSavingsAmount > 0 }?.let { i ->
+            if (i.savingsCanCover) {
+                SecondaryButton("Pakai Tabungan (Rencana) · ${rp(i.useSavingsAmount)}", onClick = { useSavings = true })
+            } else {
+                NoticeBox("Tabungan tidak cukup untuk menutup ${rp(i.useSavingsAmount)}. Dana Darurat tidak dipakai di sini.", Tone.WARNING)
+            }
+        }
 
         QuickAmountChips(quick, selected = amount.takeIf { it in quick }, onPick = { amount = it }, label = { rpShort(it).removePrefix("Rp ") })
 
@@ -186,6 +199,30 @@ fun InputContent(
                 val check = isSuspiciousAmount(amount, recentAmounts(ready.input.transactions, category.id))
                 if (check.suspicious) confirmTypo = check.median else save()
             },
+        )
+    }
+
+    if (useSavings) {
+        val i = impact
+        AlertDialog(
+            onDismissRequest = { useSavings = false },
+            title = { Text("Pakai Tabungan (Rencana)?") },
+            text = {
+                Text("Ambil ${rp(i?.useSavingsAmount ?: 0)} dari Tabungan supaya Sisa bebas kembali Rp 0, lalu simpan pengeluaran ini. " +
+                    "Alasan Rencana: tidak dihitung boncos. Dana Darurat tidak disentuh.")
+            },
+            confirmButton = {
+                HoldToConfirmButton("Tahan 3 detik · ambil ${rp(i?.useSavingsAmount ?: 0)}", danger = false, onConfirmed = {
+                    useSavings = false
+                    val cur = impact ?: return@HoldToConfirmButton
+                    val draft = expenseDraft(category, amount, date, slot, note)
+                    val txs = useSavingsTransactions(cur, draft) ?: return@HoldToConfirmButton
+                    val (text, tone) = feedbackText(category, amount, cur, date, today)
+                    vm.saveAll(txs, "$text · Tabungan −${rp(cur.useSavingsAmount)} (rencana)", tone, detailCategoryId = category.id)
+                    onSaved()
+                })
+            },
+            dismissButton = { TextButton(onClick = { useSavings = false }) { Text("Batal") } },
         )
     }
 

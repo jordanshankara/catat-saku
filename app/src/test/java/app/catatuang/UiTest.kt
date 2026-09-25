@@ -1,15 +1,8 @@
 package app.catatuang
 
 import android.app.Application
-import android.graphics.Bitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -35,7 +28,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 import java.time.LocalDate
 
 @OptIn(ExperimentalTestApi::class)
@@ -57,18 +49,7 @@ class UiTest {
 
     private fun show() = rule.setContent { CatatUangTheme { CatatRoot(env.repo, env.settings, env.lock, env.clock) } }
 
-    private fun waitText(text: String, substring: Boolean = false) =
-        rule.waitUntil(10_000) { rule.onAllNodes(hasText(text, substring = substring)).fetchSemanticsNodes().isNotEmpty() }
-
-    private fun ComposeContentTestRule.shot(name: String, containing: String? = null) {
-        waitForIdle()
-        val dir = File(System.getProperty("robolectric.screenshotDir") ?: "build/screenshots").apply { mkdirs() }
-        val matcher = if (containing != null) isRoot() and hasAnyDescendant(hasText(containing, substring = true)) else isRoot()
-        val roots = onAllNodes(matcher).fetchSemanticsNodes()
-        val node: SemanticsNodeInteraction = onAllNodes(matcher)[roots.lastIndex]
-        val bmp = node.captureToImage().asAndroidBitmap()
-        File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    }
+    private fun waitText(text: String, substring: Boolean = false) = rule.waitText(text, substring)
 
     private fun dismissDayQuestion() {
         if (rule.onAllNodesWithText("Untuk hari ini atau kemarin?").fetchSemanticsNodes().isNotEmpty()) {
@@ -165,7 +146,7 @@ class UiTest {
                 }
             }
         }
-        rule.onNodeWithText("25rb").performClick()
+        listOf("2", "5", "000").forEach { rule.onNodeWithText(it).performClick() }
         waitText("hutang makan jadi", substring = true)
         rule.onNodeWithText("Lebih Rp 10.000 dari jatah — hutang makan jadi Rp 25.000").assertExists()
         rule.shot("f2-input-makan")

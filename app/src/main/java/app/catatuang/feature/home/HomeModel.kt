@@ -9,6 +9,9 @@ import app.catatuang.engine.SalaryStatus
 import app.catatuang.engine.StockStatus
 import app.catatuang.engine.daysUntilClosing
 import app.catatuang.engine.planSplit
+import app.catatuang.feature.fixed.FixedDue
+import app.catatuang.feature.fixed.unpaidFixed
+import app.catatuang.feature.salary.reasonText
 import app.catatuang.ui.components.Tone
 import app.catatuang.ui.format.fullDate
 import app.catatuang.ui.format.monthName
@@ -16,6 +19,7 @@ import app.catatuang.ui.format.rp
 import app.catatuang.ui.format.rpShort
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 
 data class HeroChip(val label: String, val value: String, val tone: Tone)
 
@@ -51,12 +55,22 @@ data class TileUi(
     val daily: Boolean,
 )
 
+/** Ringkasan kantong di Beranda; [*Shadow] = porsi talangan bayangan (R-04). */
+data class PotsUi(val tabungan: Long, val tabunganShadow: Long, val danaDarurat: Long, val danaDaruratShadow: Long, val emergencyBelowTarget: Boolean)
+
 data class HomeUi(
+    val today: LocalDate,
     val date: String,
     val greeting: String,
     val hero: HeroUi,
     val salaryBanner: BannerUi?,
     val closingBanner: String?,
+    /** R-14 butir 2: banner tanggal 1, sekali, bisa ditutup. */
+    val cadanganBanner: BannerUi?,
+    val pots: PotsUi,
+    val fixedDue: List<FixedDue>,
+    /** R-57: "Udah transfer Rp 160.000 ke tabungan?" bila checklist belum dicentang. */
+    val checklist: String?,
     val tiles: List<TileUi>,
     val notices: List<Pair<String, Tone>>,
 )
@@ -67,7 +81,14 @@ private fun safetyText(status: SafetyStatus, sisaBebas: Long): Pair<String, Tone
     SafetyStatus.MINUS -> "Minus · sisa bebas ${rp(sisaBebas)}" to Tone.DANGER
 }
 
-fun buildHomeUi(nickname: String, input: LedgerInput, state: LedgerState, today: LocalDate): HomeUi {
+fun buildHomeUi(
+    nickname: String,
+    input: LedgerInput,
+    state: LedgerState,
+    today: LocalDate,
+    checklistMonth: String? = null,
+    cadanganDismissed: String? = null,
+): HomeUi {
     val cur = state.current!!
     val talangan = state.talangan
     val hero = if (state.salaryStatus == SalaryStatus.MISSING && talangan != null) {
@@ -131,6 +152,29 @@ fun buildHomeUi(nickname: String, input: LedgerInput, state: LedgerState, today:
 
     val tiles = buildTiles(input.categories, state, today)
 
+    val cadTarget = state.targetCadangan ?: 0
+    val cadanganBanner = if (today.dayOfMonth == 1 && cadTarget > 0 && cadanganDismissed != state.currentMonth.toString()) {
+        val reasons = cur.salary?.takeIf { !cur.isOnboarding }?.let { salary ->
+            planSplit(salary, cur.month, cur.allocation, input.categories, cur.bawaan).reasons.joinToString(" · ") { reasonText(it, input.categories) }
+        }
+        BannerUi("Cadangan ${monthName(state.currentMonth)}: ${rp(cadTarget)}", listOfNotNull(reasons?.ifEmpty { null }, "kumpulkan lewat hemat biar tabungan aman").joinToString(" — "))
+    } else null
+
+    val checklist = checklistMonth?.let(YearMonth::parse)?.let { m ->
+        val amount = input.transactions.filter { it.routine && it.refYearMonth == m }.sumOf { it.amount }
+        amount.takeIf { it > 0 }?.let { "Udah transfer ${rp(it)} ke tabungan?" }
+    }
+
+    val talanganNow = state.talangan
+    val pots = PotsUi(
+        tabungan = state.tabunganShown,
+        tabunganShadow = talanganNow?.fromTabungan ?: 0,
+        danaDarurat = state.danaDaruratShown,
+        danaDaruratShadow = talanganNow?.fromDanaDarurat ?: 0,
+        emergencyBelowTarget = state.danaDarurat < input.config.emergencyTarget,
+    )
+    val fixedDue = unpaidFixed(input.categories, state, today)
+
     val notices = buildList {
         state.largeDebt.forEach { id ->
             val name = input.categories.firstOrNull { it.id == id }?.name ?: "pos"
@@ -142,14 +186,20 @@ fun buildHomeUi(nickname: String, input: LedgerInput, state: LedgerState, today:
         hero.talanganShortfall?.let { add(it to Tone.DANGER) }
         closingBanner?.let { add(it to Tone.WARNING) }
         hero.cadangan?.takeIf { state.cadanganTerkumpul < (state.targetCadangan ?: 0) }?.let { add(it to Tone.WARNING) }
+        fixedDue.filter { !it.dueDate.isAfter(today) }.forEach { add("${it.name} jatuh tempo — belum dibayar" to Tone.WARNING) }
     }
 
     return HomeUi(
+        today = today,
         date = fullDate(today),
         greeting = "Halo, $nickname",
         hero = hero,
         salaryBanner = salaryBanner,
         closingBanner = closingBanner,
+        cadanganBanner = cadanganBanner,
+        pots = pots,
+        fixedDue = fixedDue,
+        checklist = checklist,
         tiles = tiles,
         notices = notices,
     )

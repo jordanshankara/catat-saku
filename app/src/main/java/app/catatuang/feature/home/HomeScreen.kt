@@ -33,7 +33,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.catatuang.feature.fixed.FixedDue
 import app.catatuang.ui.components.CategoryIcon
+import app.catatuang.ui.components.ShadowAmount
+import app.catatuang.ui.format.rp
 import app.catatuang.ui.components.FeedbackCard
 import app.catatuang.ui.components.StatusPill
 import app.catatuang.ui.components.ThinProgress
@@ -56,6 +59,11 @@ fun HomeScreen(
     onTileLong: (Long) -> Unit,
     onNotifications: () -> Unit,
     onNotYet: (String) -> Unit,
+    onSalary: () -> Unit = {},
+    onIncome: () -> Unit = {},
+    onSavings: () -> Unit = {},
+    onPayFixed: (FixedDue) -> Unit = {},
+    onDismissCadangan: () -> Unit = {},
 ) {
     val c = CatatTheme.colors
     Column(
@@ -71,11 +79,11 @@ fun HomeScreen(
             Box(
                 Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(c.surface)
                     .clickable(role = Role.Button, onClick = onNotifications)
-                    .semantics { contentDescription = "Notifikasi, ${ui.notices.size} pengingat aktif" },
+                    .semantics { contentDescription = "Notifikasi, ${ui.notices.size + (if (ui.checklist != null) 1 else 0)} pengingat aktif" },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(LucideIcons.Bell, contentDescription = null, tint = c.textPrimary, modifier = Modifier.size(22.dp))
-                if (ui.notices.isNotEmpty()) {
+                if (ui.notices.isNotEmpty() || ui.checklist != null) {
                     Box(Modifier.align(Alignment.TopEnd).padding(10.dp).size(8.dp).clip(RoundedCornerShape(999.dp)).background(c.danger))
                 }
             }
@@ -83,12 +91,32 @@ fun HomeScreen(
 
         feedback?.let { (text, tone) -> FeedbackCard(text, tone, onClick = onFeedbackClick) }
 
-        Hero(ui.hero)
+        Hero(ui.hero, onSalary)
+
+        ui.cadanganBanner?.let { b ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.warningBg).border(1.5.dp, c.warning, RoundedCornerShape(18.dp))
+                    .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(LucideIcons.AlertTriangle, contentDescription = null, tint = c.warningText, modifier = Modifier.size(18.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(b.title, style = CatatType.cardTitle, color = c.warningText)
+                    Text(b.subtitle, style = CatatType.caption.copy(fontWeight = FontWeight.Medium), color = c.warningText)
+                }
+                Box(
+                    Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onDismissCadangan)
+                        .semantics { contentDescription = "Tutup banner cadangan" },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(LucideIcons.Close, contentDescription = null, tint = c.warningText, modifier = Modifier.size(18.dp)) }
+            }
+        }
 
         ui.salaryBanner?.let { b ->
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.goldBg).border(1.5.dp, c.gold, RoundedCornerShape(18.dp))
-                    .clickable(role = Role.Button) { onNotYet("Alur Gajian dibuat di Fase 3.") }.padding(horizontal = 14.dp, vertical = 12.dp),
+                    .clickable(role = Role.Button, onClick = onSalary).padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -116,10 +144,13 @@ fun HomeScreen(
             }
         }
 
+        val (dueNow, dueLater) = ui.fixedDue.partition { !it.dueDate.isAfter(ui.today) }
+        if (dueNow.isNotEmpty()) FixedCard(dueNow, onPayFixed)
+
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Catat pengeluaran", style = CatatType.cardTitle.copy(fontSize = 16.sp, fontWeight = FontWeight.ExtraBold), color = c.textPrimary, modifier = Modifier.weight(1f))
             Row(
-                Modifier.clip(CatatShapes.chip).background(c.successBg).clickable(role = Role.Button) { onNotYet("Pemasukan dibuat di Fase 3.") }
+                Modifier.clip(CatatShapes.chip).background(c.successBg).clickable(role = Role.Button, onClick = onIncome)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -137,11 +168,63 @@ fun HomeScreen(
             }
         }
         wide.forEach { WideTile(it, onTile, onTileLong) }
+
+        if (dueLater.isNotEmpty()) FixedCard(dueLater, onPayFixed)
+        PotsRow(ui.pots, onSavings)
+    }
+}
+
+/** Pos TETAP bulan ini yang BELUM BAYAR (R-40, R-41). */
+@Composable
+private fun FixedCard(items: List<FixedDue>, onPay: (FixedDue) -> Unit) {
+    val c = CatatTheme.colors
+    Column(
+        Modifier.fillMaxWidth().clip(CatatShapes.card).background(c.surface).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Tagihan tetap bulan ini", style = CatatType.cardTitle, color = c.textPrimary)
+        items.forEach { f ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CategoryIcon(f.key, 36)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("${f.name} · ${rp(f.estimate)}", style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusPill("Belum bayar", Tone.WARNING)
+                        Text(f.status, style = CatatType.captionSmall, color = if (f.tone == Tone.NEUTRAL) c.textSecondary else toneColors(f.tone).content)
+                    }
+                }
+                Text("Bayar", style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color.White,
+                    modifier = Modifier.clip(CatatShapes.chip).background(c.primary).clickable(role = Role.Button) { onPay(f) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp))
+            }
+        }
+    }
+}
+
+/** Kartu ringkas Tabungan & Dana Darurat → layar 8.8. */
+@Composable
+private fun PotsRow(p: PotsUi, onOpen: () -> Unit) {
+    val c = CatatTheme.colors
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        listOf(
+            Triple("Tabungan", p.tabungan to p.tabunganShadow, c.savings to c.savingsBg),
+            Triple("Dana Darurat", p.danaDarurat to p.danaDaruratShadow, c.emergency to c.emergencyBg),
+        ).forEach { (label, amounts, colors) ->
+            Column(
+                Modifier.weight(1f).clip(CatatShapes.card).background(colors.second).clickable(role = Role.Button, onClick = onOpen).padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(label, style = CatatType.caption, color = colors.first)
+                Text(rp(amounts.first), style = CatatType.money.copy(fontSize = 17.sp), color = colors.first)
+                if (amounts.second > 0) ShadowAmount(amounts.second, colors.first)
+                else if (label == "Dana Darurat" && p.emergencyBelowTarget) Text("Di bawah target", style = CatatType.captionSmall, color = colors.first)
+            }
+        }
     }
 }
 
 @Composable
-private fun Hero(h: HeroUi) {
+private fun Hero(h: HeroUi, onSalary: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().shadow(12.dp, CatatShapes.hero, ambientColor = Color(0x471E3A9E), spotColor = Color(0x471E3A9E))
             .clip(CatatShapes.hero).background(CatatTheme.colors.heroGradient).padding(20.dp),
@@ -150,7 +233,7 @@ private fun Hero(h: HeroUi) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(h.label, style = CatatType.bodySmall.copy(fontWeight = FontWeight.SemiBold), color = HeroText)
-                Text(h.amount, style = if (h.talangan) CatatType.heroAmount.copy(fontSize = 28.sp) else CatatType.heroAmount, color = Color.White)
+                Text(h.amount, style = if (h.talangan) CatatType.heroAmount.copy(fontSize = 24.sp) else CatatType.heroAmount, color = Color.White)
             }
             Text(h.month, style = CatatType.caption.copy(fontWeight = FontWeight.Bold), color = Color.White,
                 modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 10.dp, vertical = 6.dp))
@@ -158,6 +241,11 @@ private fun Hero(h: HeroUi) {
         h.status?.let { HeroStatus(it, h.statusTone) }
         h.talanganDetail?.let { Text(it, style = CatatType.bodySmall, color = HeroText) }
         h.talanganShortfall?.let { HeroStatus(it, Tone.DANGER) }
+        if (h.talangan) {
+            Text("Gaji sudah masuk", style = CatatType.bodySmall.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF1E3A9E),
+                modifier = Modifier.clip(CatatShapes.chip).background(Color.White).clickable(role = Role.Button, onClick = onSalary)
+                    .padding(horizontal = 16.dp, vertical = 12.dp))
+        }
         h.pending?.let { HeroStatus(it, Tone.SUCCESS) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             h.chips.forEach { chip ->

@@ -9,7 +9,14 @@ import app.catatuang.engine.Pot
 import app.catatuang.engine.Tx
 import app.catatuang.engine.TxType
 import app.catatuang.engine.WithdrawReason
+import app.catatuang.engine.AllocationLine
+import app.catatuang.engine.coverNowTransactions
 import app.catatuang.engine.coverShortfall
+import app.catatuang.engine.fixedPaymentTx
+import app.catatuang.ui.format.rp
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import java.time.YearMonth
 import app.catatuang.engine.previewImpact
 import app.catatuang.ui.components.Tone
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +30,8 @@ import kotlinx.coroutines.withContext
 data class UiEvent(
     val feedback: String?,
     val tone: Tone,
-    val snackbar: String,
+    /** Null = tanpa snackbar (hanya kartu feedback). */
+    val snackbar: String?,
     val undo: (suspend () -> Unit)?,
     val detailCategoryId: Long? = null,
 )
@@ -53,6 +61,60 @@ class LedgerViewModel(private val repo: CatatRepository) : ViewModel() {
                 UiEvent(feedback, tone, "Tersimpan", undo = { repo.deleteTransaction(id) }, detailCategoryId = draft.categoryId),
             )
         }
+    }
+
+    val transferChecklist: StateFlow<Pair<String?, Int>> =
+        repo.transferChecklist.stateIn(viewModelScope, SharingStarted.Eagerly, null to 0)
+    val cadanganBannerDismissed: StateFlow<String?> =
+        repo.cadanganBannerDismissed.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Beberapa transaksi sekaligus (Pakai Tabungan + pengeluaran, pemasukan, setor/ambil kantong). */
+    fun saveAll(txs: List<Tx>, feedback: String?, tone: Tone, snackbar: String = "Tersimpan", detailCategoryId: Long? = null) {
+        viewModelScope.launch {
+            val ids = repo.addTransactions(txs)
+            _events.emit(UiEvent(feedback, tone, snackbar, undo = { ids.forEach { repo.deleteTransaction(it) } }, detailCategoryId = detailCategoryId))
+        }
+    }
+
+    /**
+     * 8.6 Konfirmasi gaji. [checklistMonth] diisi bila ada setoran Nabung rutin yang perlu ditransfer (R-57);
+     * feedback baru dikirim saat alur selesai lewat [announce].
+     */
+    suspend fun saveSalary(txs: List<Tx>, month: YearMonth, allocation: List<AllocationLine>?): CatatRepository.SavedSalary =
+        repo.saveSalary(txs, month, allocation)
+
+    fun undoSalary(saved: CatatRepository.SavedSalary) {
+        viewModelScope.launch { repo.undoSalary(saved) }
+    }
+
+    fun setTransferChecklist(month: YearMonth?) {
+        viewModelScope.launch { repo.setTransferChecklist(month) }
+    }
+
+    fun dismissCadanganBanner(month: YearMonth) {
+        viewModelScope.launch { repo.dismissCadanganBanner(month) }
+    }
+
+    fun announce(event: UiEvent) {
+        viewModelScope.launch { _events.emit(event) }
+    }
+
+    /** R-41/R-42: bayar pos TETAP bulan berjalan. */
+    fun payFixed(month: YearMonth, categoryId: Long, amount: Long, estimate: Long, feedback: String, tone: Tone) {
+        val r = ready() ?: return
+        viewModelScope.launch {
+            val id = repo.payFixed(month, fixedPaymentTx(categoryId, amount, r.today), estimate)
+            _events.emit(UiEvent(feedback, tone, "Pembayaran tersimpan", undo = { repo.unpayFixed(month, categoryId, id, estimate) }))
+        }
+    }
+
+    /** R-52 "Tutup sekarang": Saku Sisa minus ditutup dari Tabungan lalu Dana Darurat (DARURAT). */
+    fun coverNow() {
+        val r = ready() ?: return
+        val l = r.ledger
+        val txs = coverNowTransactions(l.sakuSisa, l.tabungan, l.danaDarurat, r.today)
+        if (txs.isEmpty()) return
+        saveAll(txs, feedback = "Saku Sisa ditutup ${rp(txs.sumOf { it.amount })} dari kantong", tone = Tone.WARNING, snackbar = "Saku Sisa ditutup")
     }
 
     fun update(old: Tx, new: Tx) {

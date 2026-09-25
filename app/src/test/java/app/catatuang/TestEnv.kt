@@ -38,7 +38,18 @@ class TestEnv(context: Context, today: LocalDate) {
 
     fun add(vararg txs: Tx) = runBlocking { txs.forEach { repo.addTransaction(it) } }
 
-    fun ready() = runBlocking { repo.state.filterIsInstance<app.catatuang.data.AppState.Ready>().first() }
+    /** Gaji dengan alokasi template bulan target (tanpa lewat UI). */
+    fun salary(received: LocalDate, target: java.time.YearMonth, amount: Long = 3_300_000) = runBlocking {
+        val input = ready().input
+        val alloc = input.template(target)
+        repo.saveSalary(app.catatuang.engine.salaryTransactions(amount, received, target, alloc, input.categories, extra = false), target, alloc)
+    }
+
+    /** Keadaan siap yang sudah memuat semua transaksi di database (StateFlow bisa sedikit tertinggal). */
+    fun ready() = runBlocking {
+        val n = db.dao().transactionsNow().size
+        repo.state.filterIsInstance<app.catatuang.data.AppState.Ready>().first { it.input.transactions.size == n }
+    }
 
     fun close() {
         db.close()
