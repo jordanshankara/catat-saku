@@ -82,7 +82,7 @@ Kerjakan Fase 3 di CLAUDE.md. Build rilis dan install ke HP.
 Kerjakan Fase 4 di CLAUDE.md, termasuk Mode Uji Tanggal (bagian 8.11) supaya gue bisa menguji
 Tutup Buku tanpa menunggu tanggal 1. Build rilis dan install ke HP.
 ```
-**Cek:** semua langkah 6.10 · Saku Sisa minus wajib ditutup dari Tabungan · verdict benar · bulan lalu terkunci.
+**Cek:** semua langkah 6.10 · Saku Sisa minus wajib ditutup dari Tabungan, lalu Dana Darurat · verdict benar · bulan lalu terkunci.
 
 ### Fase 5 — Notifikasi
 ```

@@ -2,12 +2,17 @@
 
 Spesifikasi lengkap aplikasi Android pribadi untuk mencatat pengeluaran. Dokumen ini adalah **sumber kebenaran** proyek.
 
-**Versi 2.** Perubahan dari versi 1: pemicu Penyesuaian memakai Kebutuhan standar (R-06) · hari ditutup 00:00, notif 22:00 hanya preview (R-21) · Target Cadangan selalu dihitung ulang (R-13) · gaji telat memakai Dana Talangan bayangan (R-04) · kantong Dana Darurat (6.7) · Transport per akhir pekan (R-35–R-38) · Lain-lain jadi pos STOK 150.000, Nabung 160.000 · sisa STOK dicairkan (R-39) · peringatan hutang besar (R-27) · Pakai Tabungan (Rencana) dari layar input (R-59) · tambah/arsip pos (R-95) · PIN 4 digit (8.14) · test diperbarui.
+**Versi 2.1.** Perubahan dari versi 1: pemicu Penyesuaian memakai Kebutuhan standar (R-06) · hari ditutup 00:00, notif 22:00 hanya preview (R-21) · Target Cadangan selalu dihitung ulang (R-13) · gaji telat memakai Dana Talangan bayangan (R-04) · kantong Dana Darurat (6.7) · Transport per akhir pekan (R-35–R-38) · Lain-lain jadi pos STOK 150.000, Nabung 160.000 · sisa STOK dicairkan (R-39) · peringatan hutang besar (R-27) · Pakai Tabungan (Rencana) dari layar input (R-59) · tambah/arsip pos (R-95) · PIN 4 digit (8.14) · test diperbarui.
+
+Perubahan 2.1 (jawaban klarifikasi): Nabung rutin dicatat saat alokasi aktif (R-55) · reservasi akhir pekan ke-5 berkurang selama jendela terbuka (R-15) · **bulan akuntansi** (R-08) · bulan tanpa gaji menol-kan hutang (6.10 langkah 1) · kewajiban TETAP dibuat tiap tanggal 1 (R-40) · Transport bukan tujuan tambah budget & refund per jendela (6.8, R-37) · R-39 untuk semua STOK non-Transport · pembulatan ke bawah ke ribuan (R-17) · 4 tap dihitung dari Beranda tidak terkunci · perlindungan Recent apps tanpa FLAG_SECURE default (8.14) · teks tile & Tutup Buku · test T-39–T-43 · Log Keputusan (bagian 16).
 
 ## 0. Cara Claude Code memakai dokumen ini
 
 - Baca dokumen ini **utuh** sebelum menulis kode. Kerjakan **per fase** (bagian 14). Jangan mengerjakan fase berikutnya sebelum diminta.
 - **Aturan bisnis (bagian 6) tidak boleh ditafsirkan ulang.** Kalau ada yang ambigu atau saling bertentangan, **berhenti dan tanya** — jangan menebak.
+- **Penanganan ambiguitas:**
+  - Ambiguitas yang **tidak** mengubah angka uang, verdict, atau perpindahan uang dari Tabungan/Dana Darurat: putuskan sendiri berdasarkan prinsip bab 2 dan aturan yang ada, catat di **bagian 16 (Log Keputusan)**, lalu lanjut kerja.
+  - Ambiguitas yang **mengubah** angka uang/verdict: kumpulkan dan tanyakan **sekaligus di akhir fase**. Jangan menghentikan pekerjaan di tengah fase kecuali benar-benar memblokir.
 - Semua hitungan uang ada di modul **`core/engine`**: Kotlin murni, tanpa dependensi Android, dan **wajib lulus unit test di bagian 13 sebelum UI yang memakainya dibuat.**
 - Jangan menambah fitur, library, izin, atau koneksi internet di luar yang tertulis di sini.
 - Referensi visual ada di folder `design/` (3 mockup HTML). File itu **referensi warna, jarak, dan hierarki**, bukan kode untuk dijalankan. Kalau teks di mockup berbeda dengan dokumen ini, **dokumen ini yang benar**.
@@ -30,7 +35,7 @@ Profil pengguna:
 
 ## 2. Prinsip produk (wajib dipatuhi di setiap layar)
 
-1. **Alur harian tidak boleh bertambah tap.** Kerumitan hanya boleh ada di: alur Gajian (bulanan), Tutup Buku (bulanan), Pengaturan (sekali), dan pertanyaan yang **hanya muncul kalau ada masalah**.
+1. **Alur harian tidak boleh bertambah tap.** Kerumitan hanya boleh ada di: alur Gajian (bulanan), Tutup Buku (bulanan), Pengaturan (sekali), dan pertanyaan yang **hanya muncul kalau ada masalah**. Target 4 tap dihitung dari **Beranda dalam kondisi tidak terkunci** (membuka kunci PIN tidak dihitung).
 2. **Default otomatis, konfirmasi hanya saat perlu.** Contoh: slot makan dipilih otomatis sesuai jam.
 3. **Status tidak boleh hanya warna.** Setiap status wajib punya teks dan/atau ikon.
 4. **Peringatan muncul sebelum menyimpan**, bukan sesudahnya (preview dampak di layar input).
@@ -73,9 +78,10 @@ Dilarang: koneksi jaringan, analytics, iklan, login, cloud sync, library berat y
 | Istilah | Arti |
 |---|---|
 | **Periode / Bulan** | Bulan kalender, tanggal 1 sampai akhir bulan (`YearMonth`). Semua cutoff = akhir bulan. |
+| **Bulan akuntansi** | Bulan tempat sebuah transaksi dihitung (R-08). Sama dengan bulan tanggal transaksi, **kecuali** transaksi Transport di dalam jendela akhir pekan → bulan si Sabtu. |
 | **Pos** | Kategori anggaran. Punya satu **jenis**: HARIAN, STOK, TETAP, atau TABUNGAN (lihat 5). |
 | **Jatah harian** | Nominal per hari untuk pos HARIAN. |
-| **Jatah akhir pekan** | Nominal per akhir pekan untuk Transport = budget Transport ÷ 4. |
+| **Jatah akhir pekan** | Nominal per akhir pekan untuk Transport = budget Transport ÷ 4, dibulatkan ke bawah ke ribuan (R-17). |
 | **Hutang (harian)** | Kelebihan pemakaian pos HARIAN, per pos. Hanya bisa dilunasi dari hemat hari-hari berikutnya pos yang sama, atau lewat Mode Darurat. |
 | **Saku Sisa** | Kantong uang bebas bulan berjalan. Diisi dari sisa gaji setelah alokasi, hemat harian, sisa jatah akhir pekan, dan sisa pos STOK di akhir bulan. Membiayai kelebihan pos STOK dan trip tambahan. **Boleh minus.** |
 | **Reservasi trip** | Bagian Saku Sisa yang dicadangkan untuk akhir pekan ke-5 (bulan dengan 5 hari Sabtu). |
@@ -103,7 +109,7 @@ Dilarang: koneksi jaringan, analytics, iklan, login, cloud sync, library berat y
 | `lain` | Lain-lain | STOK | **150.000 / bulan** | Sabun, pulsa, laundry, dll. |
 | `iuran_mess` | Iuran Mess | TETAP | **120.000 / bulan** | Tanggal jatuh tempo diatur pengguna (default tgl 1) |
 | `ai` | AI | TETAP | **390.000 / bulan** | Nominal bisa berubah (kurs). Jatuh tempo diatur pengguna (default tgl 1). |
-| `nabung` | Nabung | TABUNGAN | **160.000 / bulan** | Disetor ke Tabungan saat split |
+| `nabung` | Nabung | TABUNGAN | **160.000 / bulan** | Disetor ke Tabungan otomatis saat alokasi aktif (R-55) |
 
 Pengaturan lain:
 
@@ -134,7 +140,7 @@ Kode aturan (R-xx) dipakai di test dan komentar kode.
 - **R-02** Input gaji menyimpan: nominal, tanggal terima, **bulan target**. Bulan target default: jika `tanggal terima ≥ 20` → bulan berikutnya; jika `< 20` → bulan berjalan (gaji telat). Ditampilkan dan bisa diubah sebelum konfirmasi ("Gaji untuk bulan Oktober?").
 - **R-03 Gaji lebih cepat:** gaji untuk bulan yang belum dimulai = **Saldo Pending**. Tidak menambah Saku Sisa bulan berjalan dan tidak bisa dipakai. Split-nya dikonfirmasi saat input, tetapi alokasi baru **aktif tanggal 1** bulan target.
 - **R-04 Gaji telat — Dana Talangan (bayangan):**
-  - Jika bulan M berjalan tanpa gaji, jatah HARIAN dan budget STOK tetap aktif memakai alokasi template bulan M, tetapi **tidak ada Saku Sisa awal dari gaji perkiraan**.
+  - Jika bulan M berjalan tanpa gaji, jatah HARIAN dan budget STOK tetap aktif memakai alokasi template bulan M, tetapi **tidak ada Saku Sisa awal dari gaji perkiraan**. Hutang dan hemat harian tetap berjalan seperti biasa (untuk disiplin).
   - `Talangan(M)` = total pengeluaran bulan M sejak tanggal 1 selama gaji M belum ada. Ini **nilai turunan**, bukan transaksi.
   - Tampilan: talangan dibebankan secara bayangan mengikuti **urutan penutup**: Saku Sisa bawaan bulan lalu (atau Saku Sisa akhir bulan lalu jika Tutup Buku belum selesai) → Tabungan → Dana Darurat. Porsi yang ditalangi ditampilkan dengan gaya berbeda (garis putus-putus + label "talangan").
   - Banner Beranda: "Gaji belum masuk · ditalangi Rp X (Sisa Rp A, Tabungan Rp B, Dana Darurat Rp C)" — komponen yang 0 disembunyikan.
@@ -146,6 +152,8 @@ Kode aturan (R-xx) dipakai di test dan komentar kode.
 - **R-06 Penyesuaian wajib:** `KebutuhanStandar(M) = Σ HARIAN(jatah × 30) + Σ STOK(budget) + Σ TETAP(estimasi) + Nabung`, memakai nominal pos yang berlaku untuk bulan M (3.300.000 dengan default). Jika `gaji < KebutuhanStandar(M)`, layar **Penyesuaian** wajib muncul sebelum split.
   - Usulan otomatis: pos TETAP tidak disentuh → budget STOK & jatah HARIAN dipotong proporsional → Nabung dipotong terakhir. Semua angka bisa diedit; tombol lanjut aktif hanya jika KebutuhanStandar hasil penyesuaian ≤ gaji. Hasilnya disimpan sebagai alokasi bulan M.
   - Kekurangan karena **kalender** (hari > 30, Sabtu > 4) **tidak** memicu Penyesuaian — itu tugas Target Cadangan (6.2).
+- **R-07 Nabung rutin aktif bersama alokasi:** transaksi `SAVING_DEPOSIT` Nabung rutin dicatat otomatis pada **tanggal alokasi aktif** — tanggal 1 bulan target untuk gaji cepat (R-03), tanggal input gaji untuk gaji telat (R-04). Bulan tanpa gaji tidak punya setoran Nabung.
+- **R-08 Bulan akuntansi:** setiap transaksi dihitung ke bulan tanggalnya, **kecuali** transaksi Transport di dalam jendela akhir pekan (R-35) → bulan si Sabtu. Riwayat, kunci bulan (R-64), Tutup Buku, laporan, dan verdict memakai bulan akuntansi. Riwayat tetap menampilkan tanggal asli dengan label kecil "dihitung ke {bulan}". Jatah jendela memakai alokasi bulan akuntansi (atau template/talangan bila gajinya belum masuk).
 
 ### 6.2 Alokasi & Target Cadangan
 
@@ -161,8 +169,9 @@ Notasi: `D(M)` = jumlah hari bulan M; `S(M)` = jumlah hari Sabtu di bulan M; `J`
   3. Header Beranda sepanjang bulan: "Cadangan: terkumpul X / Y".
   4. Notifikasi H-5 akhir bulan (09:00) jika belum tercapai: "Kurang Rp X, hemat ±Rp Y/hari biar tabungan aman" (Y = X ÷ sisa hari, dibulatkan ke atas ke ribuan).
   5. Tutup Buku: Saku Sisa minus wajib ditutup (R-72).
-- **R-15** `ReservasiSisa(M) = J × (jumlah akhir pekan ke-5 bulan M yang belum tertutup)` (bernilai 0 atau J). `SisaBebas = SakuSisa − ReservasiSisa`. Progres cadangan: `terkumpul = TargetCadangan − max(0, −SisaBebas)` (dibatasi 0..Target).
+- **R-15** `ReservasiSisa(M)` = untuk akhir pekan ke-5 bulan M: sebelum/selama jendelanya terbuka `max(0, J − terpakai jendela ke-5)`; setelah jendela tertutup 0. Bulan tanpa akhir pekan ke-5: 0. `SisaBebas = SakuSisa − ReservasiSisa`. Progres cadangan: `terkumpul = TargetCadangan − max(0, −SisaBebas)` (dibatasi 0..Target).
 - **R-16 Status Sisa bebas:** `≥ ambang aman` → aman; `0 .. < ambang` → waspada; `< 0` → minus.
+- **R-17 Pembulatan:** semua pembulatan nominal alokasi **ke bawah ke kelipatan 1.000** — jatah akhir pekan `J`, potongan Penyesuaian (R-06), prorata onboarding (8.12). Selisihnya otomatis tetap di Saku Sisa karena `SakuSisaAwal = gaji − total alokasi`. Sisa pembagian budget Transport (`budget − 4J`) dicairkan ke Saku Sisa pada hari terakhir bulan (bersama R-39). Pengecualian: saran "hemat ±Rp Y/hari" (R-14 butir 4) dibulatkan **ke atas**.
 
 Contoh wajib (dipakai di test): **Oktober 2026** = 31 hari, 5 Sabtu (3, 10, 17, 24, 31). Kebutuhan = 1.550.000 + 310.000 + 480.000 + 200.000 + 150.000 + 120.000 + 390.000 + 160.000 = **3.360.000**. Dengan gaji 3.300.000: SakuSisaAwal = −60.000, TripTambahan = 120.000, **Target Cadangan = 180.000**, Penyesuaian tidak terpicu.
 
@@ -195,36 +204,37 @@ Contoh wajib (dipakai di test): **Oktober 2026** = 31 hari, 5 Sabtu (3, 10, 17, 
   - Akhir pekan ke-1–4: `delta = J − terpakai(jendela)`. `delta ≥ 0` → Saku Sisa += delta (termasuk seluruh `J` jika tidak pulang). `delta < 0` → Saku Sisa −= |delta|.
   - Akhir pekan ke-5: pengeluarannya mengurangi Saku Sisa langsung; reservasi dilepas saat jendela tertutup.
   - Selama jendela masih terbuka, pengeluaran hanya mengurangi jatah akhir pekan itu (belum menyentuh Saku Sisa).
-  - Status tile: di dalam jendela "Akhir pekan ini: Rp X / Rp J"; di luar jendela "Trip n dari S(M)".
+  - Pengembalian (REFUND) Transport: di dalam jendela → mengurangi terpakai jendela itu; di luar jendela → Saku Sisa +.
+  - Status tile: di dalam jendela "Akhir pekan ini: Rp X / Rp J"; di luar jendela "Trip n dari S(M)" + baris "Sisa budget Rp X".
 - **R-38 Trip tambahan:** transaksi Transport di luar jendela akhir pekan langsung mengurangi Saku Sisa (tidak memakai budget Transport).
 - **R-33** Pada hari Jumat, Sabtu, dan Minggu, tile Transport pindah ke posisi pertama di Beranda.
 - **R-32** Tutup Buku bulan M baru bisa diselesaikan setelah jendela akhir pekan terakhir milik M tertutup. Jika belum, langkah 1 menampilkan "Menunggu akhir pekan selesai (Senin)".
 
-**Protein & Lain-lain**
+**Protein, Lain-lain, dan pos STOK lain**
 
-- **R-39** Sisa budget Protein dan Lain-lain dicairkan ke Saku Sisa pada **hari terakhir bulan** (saat hari itu tertutup), sebelum Tutup Buku. Protein sengaja tidak dicairkan per pembelian karena selisihnya adalah buffer untuk hari yang tidak tertutup.
+- **R-39** Sisa budget **semua pos STOK kecuali Transport** (Protein, Lain-lain, dan pos STOK baru dari R-95) dicairkan ke Saku Sisa pada **hari terakhir bulan** (saat hari itu tertutup), sebelum Tutup Buku. Protein sengaja tidak dicairkan per pembelian karena selisihnya adalah buffer untuk hari yang tidak tertutup.
 
 ### 6.5 Pos TETAP (Iuran Mess, AI)
 
-- **R-40** Saat split, estimasi dicadangkan dengan status **BELUM BAYAR**. Tidak ada input harian.
-- **R-41** Pada tanggal jatuh tempo (09:00) muncul notifikasi "AI jatuh tempo. Bayar berapa?" dengan nominal estimasi terisi. Pengguna konfirmasi atau ubah nominal → status LUNAS.
+- **R-40** Kewajiban pos TETAP dibuat otomatis **setiap tanggal 1** dari alokasi bulan itu (atau template bila gaji belum masuk), dengan status **BELUM BAYAR**. Tidak ada input harian.
+- **R-41** Pada tanggal jatuh tempo (09:00) muncul notifikasi "AI jatuh tempo. Bayar berapa?" dengan nominal estimasi terisi — juga saat gaji belum masuk. Pengguna konfirmasi atau ubah nominal → status LUNAS. Pembayaran sebelum gaji masuk langsung terhubung ke kewajibannya dan ikut dihitung sebagai talangan (R-04).
 - **R-42** `selisih = estimasi − aktual` masuk ke Saku Sisa (positif menambah, negatif mengurangi).
 - **R-43** Belum dibayar saat Tutup Buku → ditanya: "Sudah dibayar (nominal?)" atau "Tidak jadi" (estimasi kembali ke Saku Sisa).
 
 ### 6.6 Saku Sisa
 
-- **R-51** Preview di layar input untuk transaksi yang mengurangi Saku Sisa: jika membuat SisaBebas < 0 → "Ini memakai cadangan akhir bulan" (kuning) + tombol cepat **Pakai Tabungan (Rencana)** (R-59). Jika membuat Saku Sisa < 0 → "Saku Sisa minus — akhir bulan akan memotong Tabungan" (merah). Pengguna tetap boleh menyimpan.
+- **R-51** Preview di layar input untuk transaksi yang mengurangi Saku Sisa: jika membuat SisaBebas < 0 → "Ini memakai cadangan akhir bulan" (kuning) + tombol cepat **Pakai Tabungan (Rencana)** (R-59). Jika membuat Saku Sisa < 0 → "Saku Sisa minus — akhir bulan ditutup dari Tabungan, lalu Dana Darurat" (merah). Pengguna tetap boleh menyimpan.
 - **R-52** Saku Sisa minus **tidak** otomatis mengambil Tabungan selama bulan berjalan. Penyelesaiannya di Tutup Buku (R-72). Tersedia aksi manual "Tutup sekarang" (urutan penutup, tahan 3 detik).
 
 ### 6.7 Tabungan & Dana Darurat
 
-- **R-55** Setoran Tabungan: Nabung rutin (saat split), sisa bulan lalu (Tutup Buku), pemasukan bertujuan Tabungan (mis. THR), setoran manual. Setoran Dana Darurat: Tutup Buku ("Isi Dana Darurat") dan setoran manual.
+- **R-55** Setoran Tabungan: Nabung rutin (otomatis saat alokasi aktif, R-07), sisa bulan lalu (Tutup Buku), pemasukan bertujuan Tabungan (mis. THR), setoran manual. Setoran Dana Darurat: Tutup Buku ("Isi Dana Darurat") dan setoran manual.
 - **R-56** Mengambil dari Tabungan atau Dana Darurat wajib memilih alasan:
   - **DARURAT** — masuk hitungan BONCOS.
   - **RENCANA** — tidak dihitung boncos, tetap tampil di laporan.
   - **TANPA_GAJI** — hanya dibuat sistem saat Tutup Buku bulan tanpa gaji; tidak memicu BONCOS.
   Uang yang diambil masuk ke Saku Sisa. Aksi manual selalu memakai tahan tombol 3 detik.
-- **R-57** Setelah split, checklist "Sudah transfer Rp X ke rekening tabungan?". Jika belum dicentang, pengingat esok hari 09:00 (maksimal 3 hari berturut-turut).
+- **R-57** Setelah split, checklist "Sudah transfer Rp X ke rekening tabungan?". Jika belum dicentang, pengingat esok hari 09:00 (maksimal 3 hari berturut-turut). Checklist **hanya pengingat** — tidak membuat transaksi (setoran dicatat oleh R-07).
 - **R-58 Urutan penutup** untuk semua kekurangan (Mode Darurat, Saku Sisa minus saat Tutup Buku, talangan, tanpa gaji): **Saku Sisa → Tabungan → Dana Darurat**. Dana Darurat hanya disentuh jika Tabungan sudah 0, dan layarnya menegaskan "Ini dana darurat terakhir lu".
 - **R-59 Pakai Tabungan (Rencana)** dari layar input: mengambil dari **Tabungan saja** sebesar kekurangan yang membuat SisaBebas < 0 (tahan 3 detik), lalu menyimpan pengeluaran. Alasan RENCANA, tidak memicu BONCOS. Jika Tabungan tidak cukup, tampilkan pesan dan jangan sentuh Dana Darurat.
 
@@ -232,7 +242,7 @@ Contoh wajib (dipakai di test): **Oktober 2026** = 31 hari, 5 Sabtu (3, 10, 17, 
 
 | Jenis | Tujuan default | Pilihan tujuan |
 |---|---|---|
-| Pemberian | Saku Sisa | Saku Sisa / Tabungan / Dana Darurat / tambah budget pos STOK |
+| Pemberian | Saku Sisa | Saku Sisa / Tabungan / Dana Darurat / tambah budget pos STOK (kecuali Transport) |
 | Penghasilan sampingan | Saku Sisa | sama |
 | THR / Bonus | **Tabungan** | sama |
 | Pengembalian ke kategori (reimburse, refund) | pos asal | wajib pilih pos; **mengurangi "terpakai"** pos itu pada tanggal yang dipilih |
@@ -246,7 +256,7 @@ Pemasukan tidak pernah membuka periode baru dan tidak mengubah jatah harian.
 - **R-61** Input antara **00:00–04:59** → dialog wajib "Untuk hari ini atau kemarin?" (default: Kemarin). Di luar jam itu tanggal otomatis hari ini, dengan chip tanggal yang bisa diganti (date picker dibatasi ke bulan yang belum ditutup).
 - **R-62** Setelah simpan: kartu feedback 3 detik + snackbar **Urungkan** 5 detik.
 - **R-63** Transaksi di bulan yang belum ditutup bisa diedit/dihapus dari Riwayat.
-- **R-64** Bulan yang sudah Tutup Buku = **read-only**. Koreksi dicatat di bulan berjalan sebagai transaksi **Koreksi** (pos + nominal ±, catatan wajib).
+- **R-64** Bulan (akuntansi, R-08) yang sudah Tutup Buku = **read-only**. Koreksi dicatat di bulan berjalan sebagai transaksi **Koreksi** (pos + nominal ±, catatan wajib).
 - **R-65 Anti-typo:** jika nominal > 3× median 20 transaksi terakhir pos itu (minimal 5 data), minta konfirmasi: "Yakin Rp 450.000? Biasanya ±Rp 45.000".
 - **R-66** Tombol "Hari ini beres" hanya menandai hari itu selesai dicatat (menghentikan pengingat). Tidak mempengaruhi hitungan.
 
@@ -255,8 +265,8 @@ Pemasukan tidak pernah membuka periode baru dan tidak mengubah jatah harian.
 Dipicu tanggal 1 untuk bulan sebelumnya (notifikasi 07:00 + otomatis terbuka saat app dibuka pertama kali tanggal ≥ 1). Bisa ditunda, tetapi Beranda menampilkan pengingat sampai selesai. Langkah berurutan:
 
 0. **"Ada catatan kemarin yang belum masuk?"** → pintasan ke input bertanggal hari terakhir bulan lalu. Jika jendela akhir pekan terakhir belum tertutup, tunggu (R-32).
-1. **Status gaji.** Jika bulan itu tidak pernah punya gaji: tanya "Gajinya masuk tanggal berapa?" (lanjut ke alur Gajian) atau **"Bulan ini tanpa gaji"**. Bulan tanpa gaji: tidak ada alokasi Nabung/TETAP otomatis; `SakuSisaAkhir = bawaan + pemasukan − pengeluaran riil`; minusnya ditutup dengan urutan penutup memakai alasan **TANPA_GAJI**.
-2. **Verdict** (R-80) dengan ringkasan angka.
+1. **Status gaji.** Jika bulan itu tidak pernah punya gaji: tanya "Gajinya masuk tanggal berapa?" (lanjut ke alur Gajian) atau **"Bulan ini tanpa gaji"**. Bulan tanpa gaji: tidak ada setoran Nabung; `SakuSisaAkhir = bawaan − hutang masuk dari bulan lalu + pemasukan − pengeluaran riil`, lalu **semua hutang harian di-nol-kan** (sudah tercakup pengeluaran riil); minusnya ditutup dengan urutan penutup memakai alasan **TANPA_GAJI**.
+2. **Verdict sementara** (R-80) dengan ringkasan angka. Verdict final ditampilkan di akhir Tutup Buku.
 3. **Cocokkan saldo** (bisa dilewati): "Uang pegangan lu sekarang (dompet + rekening + e-wallet, di luar tabungan & dana darurat) berapa?" → dibandingkan dengan uang pegangan hasil hitung (7.3). Selisih kurang → transaksi **Tidak tercatat** (mengurangi Saku Sisa bulan itu). Selisih lebih → transaksi **Selisih lebih** (menambah Saku Sisa). Verdict dihitung ulang dan ditampilkan lagi.
 4. **Hutang harian tersisa** (per pos): **Bawa ke bulan baru** (default) / **Lunasi pakai Saku Sisa**.
 5. **Pos TETAP belum dibayar** (R-43).
@@ -318,10 +328,10 @@ Semua `amount` positif (`Long`). Arah ditentukan jenis. Kolom `pot` bernilai `TA
 |---|---|---|---|---|
 | `SALARY` | Gaji | + | | Sumber alokasi bulan target (pending jika bulan belum mulai) |
 | `INCOME` | Pemberian, sampingan, THR | + (jika tujuan bukan kantong) | + (jika tujuan kantong) | Tujuan Sisa → Saku Sisa +; tujuan pos STOK → budget pos + |
-| `REFUND` | Pengembalian ke kategori | + | | "terpakai" pos asal − pada tanggalnya |
+| `REFUND` | Pengembalian ke kategori | + | | "terpakai" pos asal − pada tanggalnya; Transport di luar jendela → Saku Sisa + |
 | `EXPENSE` | Pengeluaran pos HARIAN/STOK | − | | HARIAN → terpakai hari itu; STOK → terpakai bulan/jendela; Transport di luar jendela → Saku Sisa − |
 | `FIXED_PAYMENT` | Bayar Iuran Mess / AI | − | | Pos tetap LUNAS; selisih estimasi → Saku Sisa (R-42) |
-| `SAVING_DEPOSIT` | Nabung rutin, sisa → kantong, setor manual | − | + | Nabung rutin: bagian alokasi. Lainnya: Saku Sisa − |
+| `SAVING_DEPOSIT` | Nabung rutin (R-07), sisa → kantong, setor manual | − | + | Nabung rutin: bagian alokasi. Lainnya: Saku Sisa − |
 | `SAVING_WITHDRAW` | Ambil kantong (`reason`: DARURAT/RENCANA/TANPA_GAJI) | + | − | Saku Sisa + |
 | `DEBT_PAYOFF` | Mode Darurat dari Saku Sisa | | | Hutang pos − ; Saku Sisa − |
 | `CARRY_OVER` | Bawa sisa ke bulan depan | | | Saku Sisa(M) − ; Saku Sisa(M+1) + |
@@ -353,13 +363,14 @@ Mockup: `design/Main.dc.html` (Beranda), `design/Input.dc.html` (Input), `design
 ### 8.1 Beranda (`design/Main.dc.html`)
 - **Header:** tanggal lengkap ("Senin, 28 September") + "Halo, {nama}" + tombol notifikasi (daftar pengingat aktif).
 - **Kartu hero (gradien biru):** Saku Sisa (angka besar) + label bulan. Dua chip: "Hutang makan" (total hutang harian; sembunyikan jika 0) dan "Tutup buku · n hari lagi".
+  - "Tutup buku · n hari lagi": n = selisih hari ke tanggal 1 bulan berikutnya (28 Sep → 3).
   - Jika Target Cadangan > 0: tambah baris "Cadangan: terkumpul X / Y" + progress bar.
   - **Mode talangan** (gaji bulan ini belum masuk): angka besar diganti "Ditalangi Rp X" dengan rincian bayangan per kantong (R-04) dan tombol "Gaji sudah masuk".
   - Jika ada Saldo Pending: chip "Gaji {bulan} aman · aktif tgl 1".
   - Warna status Sisa bebas (R-16) wajib disertai teks.
 - **Banner Gajian (emas):** tampil mulai tanggal 27 sampai gaji bulan depan diinput, **atau** saat bulan berjalan belum punya gaji. Teks kedua memuat Target Cadangan bulan depan jika > 0.
 - **Baris "Catat pengeluaran"** + tombol **Pemasukan** (hijau muda).
-- **Grid kategori** 2 kolom: Makan, Buah, Transport OE, Protein; Lain-lain lebar penuh. Jumat–Minggu: Transport di posisi pertama (R-33). Setiap tile: ikon berwarna, nama, satu baris status (teks), progress bar tipis, badge opsional (Hutang, Trip n/S, Stok, peringatan hutang besar).
+- **Grid kategori** 2 kolom: Makan, Buah, Transport OE, Protein; Lain-lain lebar penuh. Jumat–Minggu: Transport di posisi pertama (R-33). Setiap tile: ikon berwarna, nama, satu baris status (teks), progress bar tipis, badge opsional (Hutang, Trip n/S, Stok, peringatan hutang besar). Teks status: Transport di dalam jendela "Akhir pekan ini: Rp X / Rp J", di luar jendela "Trip n dari S(M)" + "Sisa budget Rp X"; Protein & pos STOK lain "Terpakai Rp X / Rp Y". Jika teks mockup berbeda, teks ini yang benar.
 - **Bottom nav:** Beranda · Riwayat · **[+] hijau tengah** · Laporan · Pengaturan. Tombol + membuka pemilih kategori (sheet berisi tile pos aktif) dari tab mana pun.
 - Banner Tutup Buku (jika tertunda) muncul di atas grid.
 
@@ -371,7 +382,7 @@ Urutan: handle → header (ikon pos, nama, sisa jatah/budget, chip tanggal) → 
 - Kartu feedback setelah simpan: "Makan +Rp 25.000 · Hari ini 60rb / 50rb · Hutang Rp 25.000" dengan warna + ikon status.
 
 ### 8.3 Detail pos HARIAN (`design/DetailMakan.dc.html`, tema gelap)
-Gauge setengah lingkaran (terpakai vs jatah hari ini, angka besar = sisa jatah) → rincian per slot → kartu hutang (nominal, kalimat **"Tahan di Rp X sampai akhir hari — hutang lunas saat hari ditutup tengah malam."** jika sisa jatah hari ini ≥ hutang, tombol **Mode darurat**) → grafik batang 7 hari terakhir dengan garis putus-putus jatah dan label "+X" pada hari lebih → statistik bulan: hari hemat, hari lebih, total ke Saku Sisa → daftar transaksi hari ini.
+Gauge setengah lingkaran (terpakai vs jatah hari ini, angka besar = sisa jatah) → rincian per slot → kartu hutang (nominal, kalimat **"Tahan di Rp X sampai akhir hari — hutang lunas saat hari ditutup tengah malam."** dengan `X = jatah − hutang`, hanya jika terpakai hari ini ≤ X; tombol **Mode darurat**) → grafik batang 7 hari terakhir dengan garis putus-putus jatah dan label "+X" pada hari lebih → statistik bulan: hari hemat, hari lebih, total ke Saku Sisa → daftar transaksi hari ini.
 Dibuka dengan tap lama pada tile, atau tap kartu feedback.
 
 ### 8.4 Detail pos STOK
@@ -388,13 +399,13 @@ Pilih jenis (6.8) → nominal (numpad sama) → tujuan (default sesuai jenis) �
 4. **Checklist:** "Transfer Rp 160.000 ke rekening tabungan" (R-57). Selesai → kembali ke Beranda dengan feedback "Gaji Oktober tersimpan · aktif 1 Okt" (atau "Talangan Rp X dikembalikan" jika gaji telat).
 
 ### 8.7 Tutup Buku (layar penuh, stepper sesuai 6.10)
-Setiap langkah satu layar dengan satu keputusan utama. Kartu verdict besar di langkah 2 dan di akhir.
+Setiap langkah satu layar dengan satu keputusan utama. Kartu verdict besar di langkah 2 (berlabel "sementara") dan verdict final di akhir.
 
 ### 8.8 Tabungan & Dana Darurat
 Dua kartu: **Tabungan** (ungu) dan **Dana Darurat** (dengan progres terhadap target). Riwayat masuk/keluar per kantong. Tombol **Setor** dan **Ambil** per kantong (R-56, tahan 3 detik, layar merah untuk DARURAT, peringatan tambahan untuk Dana Darurat).
 
 ### 8.9 Riwayat
-Pemilih bulan → daftar transaksi dikelompokkan per tanggal (header tanggal + total hari). Filter chip per pos. Tap → sheet edit (R-63). Bulan tertutup: badge "Terkunci", aksi edit diganti "Buat koreksi" (R-64).
+Pemilih bulan (bulan akuntansi, R-08) → daftar transaksi dikelompokkan per tanggal (header tanggal + total hari); transaksi yang bulan akuntansinya beda dari tanggalnya diberi label kecil "dihitung ke {bulan}". Filter chip per pos. Tap → sheet edit (R-63). Bulan tertutup: badge "Terkunci", aksi edit diganti "Buat koreksi" (R-64).
 
 ### 8.10 Laporan
 Tab **Mingguan** | **Bulanan** + tombol **Export** di kanan atas.
@@ -402,7 +413,7 @@ Tab **Mingguan** | **Bulanan** + tombol **Export** di kanan atas.
 - **Bulanan:** kartu verdict (untuk bulan berjalan tampil "sementara"); donut per pos + chip legenda; tabel budget vs realisasi; aliran Tabungan & Dana Darurat; hutang; statistik hari hemat/lebih; hasil cocokkan saldo.
 
 ### 8.11 Pengaturan
-Nama panggilan · pos & nominal (berlaku bulan depan) · **tambah/arsip pos** (R-95) · tanggal jatuh tempo pos tetap · perkiraan tanggal gajian · jam notifikasi · ambang aman · target Dana Darurat · **ganti PIN & batas waktu kunci** · tema terang/gelap · folder auto-backup · Export / Backup / Pulihkan · panduan izin notifikasi & optimasi baterai · versi app.
+Nama panggilan · pos & nominal (berlaku bulan depan) · **tambah/arsip pos** (R-95) · tanggal jatuh tempo pos tetap · perkiraan tanggal gajian · jam notifikasi · ambang aman · target Dana Darurat · **ganti PIN & batas waktu kunci** · **Blokir screenshot** (toggle, default mati; 8.14) · tema terang/gelap · folder auto-backup · Export / Backup / Pulihkan · panduan izin notifikasi & optimasi baterai · versi app.
 - **Mode Uji Tanggal (tersembunyi):** ketuk "versi app" 7× → bisa memajukan "hari ini" untuk menguji Gajian, Tutup Buku, akhir pekan, dan notifikasi. Selama aktif, banner merah "MODE UJI" tampil di semua layar. Semua data yang dibuat saat mode uji diberi tanda dan **dihapus otomatis** saat mode dimatikan (data asli tidak tersentuh).
 
 ### 8.12 Onboarding
@@ -412,7 +423,7 @@ Mulai Baru:
 2. **Buat PIN 4 digit** (ketik dua kali).
 3. Konfirmasi pos & nominal default (bagian 5), bisa diubah.
 4. Saldo awal: "Uang pegangan lu sekarang berapa?", "Tabungan sekarang berapa?" (contoh 500.000), "Dana darurat sekarang berapa?" (contoh 1.000.000).
-5. **Periode awal** (mulai di tengah bulan): jatah HARIAN dihitung dari hari ini sampai akhir bulan; Transport = jumlah akhir pekan tersisa (termasuk yang sedang berjalan, maks 4) × J; Protein & Lain-lain diprorata `budget × sisaHari ÷ D(M)` (dibulatkan ke ribuan); pos TETAP bulan ini dianggap sudah dibayar; `SakuSisaAwal = uangPegangan − (jatah harian sisa bulan + Transport + STOK prorata)`. Jika minus, tampilkan warning (R-14 berlaku).
+5. **Periode awal** (mulai di tengah bulan): jatah HARIAN dihitung dari hari ini sampai akhir bulan; Transport = jumlah akhir pekan tersisa (termasuk yang sedang berjalan, maks 4) × J; Protein & Lain-lain diprorata `budget × sisaHari ÷ D(M)` (dibulatkan ke bawah ke ribuan, R-17); pos TETAP bulan ini dianggap sudah dibayar; `SakuSisaAwal = uangPegangan − (jatah harian sisa bulan + Transport + STOK prorata)`. Jika minus, tampilkan warning (R-14 berlaku).
 6. Izin notifikasi → panduan mematikan optimasi baterai untuk app ini (bahasa sederhana, sebut Xiaomi/Oppo/Vivo/Realme).
 7. Pilih folder auto-backup (boleh dilewati).
 
@@ -427,7 +438,7 @@ Mulai Baru:
 - Diminta saat app dibuka setelah di-background ≥ batas waktu (default 5 menit), dan untuk input dari widget/notifikasi saat terkunci.
 - Numpad sama dengan layar input. 5× salah → jeda 30 detik (bertambah dua kali lipat setiap 5× salah berikutnya).
 - Tautan "Lupa PIN?" menjelaskan: satu-satunya cara adalah instal ulang lalu **Pulihkan dari Backup**. File backup tidak terenkripsi, jadi simpan di tempat aman.
-- Layar lain (Recent apps) memakai `FLAG_SECURE` saat terkunci agar isi tidak terlihat di pratinjau.
+- Pratinjau Recent apps: di API 33+ pakai `setRecentsScreenshotEnabled(false)` supaya pratinjau kosong tetapi screenshot tetap bisa. Di bawah API 33 tidak ada perlindungan. **Tidak** memakai `FLAG_SECURE` secara default; `FLAG_SECURE` hanya aktif jika toggle Pengaturan **"Blokir screenshot"** dinyalakan (default mati).
 
 ---
 
@@ -525,7 +536,7 @@ Semua lulus sebelum UI terkait dibuat. Nilai dalam rupiah, konfigurasi default b
 | T-07 | Split Oktober pada 29 Sep, Tutup Buku September belum | Target 180.000 + keterangan "bisa berubah"; setelah Tutup Buku September dengan bawa 100.000 → Target 80.000 |
 | T-08 | Makan lebih 20.000 pada 31 Okt, 1 Nov hemat 15.000 | Hutang terbawa ke November; 1 Nov hutang jadi 5.000 |
 | T-09 | Mode Darurat hutang 30.000; Saku Sisa 20.000; Tabungan 500.000 | Saku Sisa 0, Tabungan 490.000 (SAVING_WITHDRAW DARURAT 10.000), hutang 0; verdict BONCOS 10.000 |
-| T-10 | Transport 5 akhir pekan di Oktober 2026 @120.000 | Akhir pekan 1–4: Saku Sisa ±0; akhir pekan 5: Saku Sisa −120.000, reservasi 0; SisaBebas tidak berubah akibat akhir pekan 5 |
+| T-10 | Transport 5 akhir pekan di Oktober 2026 @120.000 | Akhir pekan 1–4: Saku Sisa ±0; akhir pekan 5: Saku Sisa −120.000, reservasi 0; SisaBebas tidak berubah akibat akhir pekan 5. Varian: belanja 60.000 hari Sabtu 31 Okt (jendela masih terbuka) → Saku Sisa −60.000, reservasi 60.000, SisaBebas tidak berubah |
 | T-11 | Transport Sabtu 31 Okt + Minggu 1 Nov 2026 | Keduanya masuk akhir pekan ke-5 Oktober; Tutup Buku Oktober baru bisa selesai Senin 2 Nov |
 | T-12 | Tutup Buku, Saku Sisa −40.000, Tabungan 500.000 | Wajib tutup: Tabungan 460.000 (DARURAT 40.000); verdict BONCOS 40.000 |
 | T-13 | Saku Sisa akhir 30.000, tanpa hutang (ambang 50.000) | PAS-PASAN |
@@ -541,7 +552,7 @@ Semua lulus sebelum UI terkait dibuat. Nilai dalam rupiah, konfigurasi default b
 | T-23 | THR 3.000.000 dengan tujuan default | Tabungan +3.000.000; Saku Sisa tetap |
 | T-24 | Onboarding 16 Sep 2026 (D=30), uang pegangan 900.000 | Jatah harian 15 hari; Transport = akhir pekan tersisa × 120.000; Protein & Lain-lain prorata 15/30; SakuSisaAwal sesuai rumus 8.12 |
 | T-25 | Round-trip backup: ekspor lalu impor | Seluruh `LedgerState` identik |
-| T-26 | Bawaan September 60.000, Tabungan 500.000, Dana Darurat 1.000.000; gaji Oktober belum masuk; pengeluaran 1–2 Okt 90.000 | Tampilan talangan 90.000: Sisa bawaan 0 (60.000 ditalangi), Tabungan 470.000 (30.000 ditalangi); **tanpa** SAVING_WITHDRAW. Gaji 3.300.000 diinput 3 Okt → Tabungan 500.000; Saku Sisa Oktober termasuk bawaan 60.000; seluruh saldo identik dengan kondisi gaji masuk tepat waktu |
+| T-26 | Bawaan September 60.000, Tabungan 500.000, Dana Darurat 1.000.000; gaji Oktober belum masuk; pengeluaran 1–2 Okt 90.000 | Tampilan talangan 90.000: Sisa bawaan 0 (60.000 ditalangi), Tabungan 470.000 (30.000 ditalangi); **tanpa** SAVING_WITHDRAW. Gaji 3.300.000 diinput 3 Okt → Tabungan 660.000 (500.000 kembali utuh + Nabung rutin 160.000, R-07); Saku Sisa Oktober termasuk bawaan 60.000; seluruh saldo Saku Sisa & hutang identik dengan kondisi gaji masuk tepat waktu |
 | T-27 | Talangan melebihi Sisa + Tabungan + Dana Darurat | Status peringatan "Dana talangan habis"; pencatatan tetap bisa |
 | T-28 | Tutup Buku bulan tanpa gaji, pengeluaran riil 800.000, bawaan 100.000, Tabungan 500.000, Dana Darurat 1.000.000 | Kekurangan 700.000 ditutup: Tabungan 0 (TANPA_GAJI 500.000), Dana Darurat 800.000 (TANPA_GAJI 200.000); verdict TANPA GAJI, bukan BONCOS |
 | T-29 | Protein terpakai 186.000 (budget 200.000) sampai akhir bulan | Saku Sisa +14.000 saat hari terakhir tertutup |
@@ -554,6 +565,11 @@ Semua lulus sebelum UI terkait dibuat. Nilai dalam rupiah, konfigurasi default b
 | T-36 | Kekurangan 700.000 ditutup (DARURAT), Saku Sisa 100.000, Tabungan 500.000, Dana Darurat 1.000.000 | Saku Sisa 0, Tabungan 0, Dana Darurat 900.000; BONCOS 600.000 |
 | T-37 | Lain-lain terpakai 170.000 (budget 150.000) | Saku Sisa −20.000 saat transaksi yang melewati budget |
 | T-38 | Tutup Buku, Saku Sisa +200.000, Dana Darurat 900.000 (target 1.000.000) | Opsi "Isi Dana Darurat" tampil paling atas |
+| T-39 | Transport Jumat 30 Apr 2027 (Sabtu 1 Mei 2027) | Dihitung ke akhir pekan ke-1 Mei 2027 (bulan akuntansi Mei); tidak ikut terkunci saat April ditutup |
+| T-40 | Tutup Buku bulan tanpa gaji: bawaan 100.000, hutang masuk 20.000, pengeluaran riil 800.000 | SakuSisaAkhir −720.000; hutang 0 |
+| T-41 | Gaji Oktober belum masuk; AI (estimasi 390.000) dibayar 400.000 tanggal 1 Okt; gaji masuk 3 Okt | Kewajiban AI Oktober ada sejak 1 Okt dan LUNAS; talangan termasuk 400.000; setelah gaji masuk Saku Sisa kena selisih −10.000 (R-42) |
+| T-42 | Budget Transport 450.000 | J = 112.000; sisa 2.000 dicairkan ke Saku Sisa di hari terakhir bulan |
+| T-43 | REFUND Transport 20.000 di dalam jendela (terpakai 120.000); REFUND Transport 30.000 hari Rabu | Terpakai jendela jadi 100.000; Rabu: Saku Sisa +30.000 |
 
 Tambahkan test lain bila menemukan kasus pinggiran. Test UI minimal: navigasi 4 tap dari Beranda sampai tersimpan; kunci PIN (5× salah → jeda 30 detik).
 
