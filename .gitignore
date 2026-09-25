@@ -1,0 +1,20 @@
+# Gradle / IDE
+.gradle/
+build/
+**/build/
+.kotlin/
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Rahasia rilis — JANGAN pernah di-commit
+keystore.properties
+keystore/
+*.jks
+*.keystore
+
+# Lain-lain
+.DS_Store
