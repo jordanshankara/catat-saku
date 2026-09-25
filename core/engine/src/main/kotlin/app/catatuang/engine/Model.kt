@@ -68,7 +68,7 @@ data class AllocationLine(
  * Transaksi. Semua [amount] positif; arah ditentukan [type] (7.3).
  *
  * @property closingOf diisi untuk transaksi yang dibuat di alur Tutup Buku bulan itu; dihitung ke bulan
- *   tersebut dan diproses setelah bulan itu berakhir (D-07).
+ *   tersebut dan diproses setelah bulan itu berakhir (D-08).
  * @property routine true untuk setoran Nabung rutin (R-07).
  * @property refYearMonth SALARY: bulan target. CARRY_OVER: bulan penerima. SAVING_DEPOSIT rutin: bulan alokasi.
  */

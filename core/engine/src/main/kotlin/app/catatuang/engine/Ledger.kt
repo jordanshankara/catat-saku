@@ -474,7 +474,7 @@ internal class Replay(
         val saku: Long
         val beforeDistribution: Long
         if (c.noSalary) {
-            // 6.10 langkah 1: bawaan − hutang masuk + pemasukan − pengeluaran riil (+ arus kantong manual, D-12).
+            // 6.10 langkah 1: bawaan − hutang masuk + pemasukan − pengeluaran riil (+ ambil/setor kantong manual; menunggu konfirmasi, lihat pertanyaan akhir Fase 1).
             val cashBased = bawaan - a.hutangMasuk + a.pemasukan + a.gajiTambahan - a.riil + a.otherCashFlows
             beforeDistribution = cashBased
             saku = cashBased + a.coverIn - a.movedToPots - a.carriedOut

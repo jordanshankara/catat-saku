@@ -598,3 +598,33 @@ Setiap fase: kode dikomit ke git, test lulus, APK rilis ter-build dan ter-instal
 **Tidak dibuat:** cloud sync, login/akun, multi-pengguna, multi-mata uang, integrasi bank/e-wallet, sinkron Google Calendar, iklan, analytics, biometrik.
 
 **Backlog (prioritas rendah, setelah Fase 8):** Pinjaman — `LOAN_OUT` (minjemin: uang pegangan −, tidak dihitung pengeluaran) dan `LOAN_RETURN` (uang pegangan +), dengan nama peminjam dan daftar piutang terbuka.
+
+---
+
+## 16. Log Keputusan
+
+Keputusan atas ambiguitas yang **tidak** mengubah angka uang, verdict, atau perpindahan uang dari Tabungan/Dana Darurat (aturan bagian 0). Format: ID · konteks · keputusan.
+
+| ID | Konteks | Keputusan |
+|---|---|---|
+| D-01 | Identitas app | `applicationId`/package `app.catatuang`. Tidak bisa diganti setelah APK pertama ter-install tanpa uninstall. |
+| D-02 | Struktur modul 7.1 | `core/engine` adalah modul Gradle `:core:engine` di root repo (Kotlin/JVM murni, tanpa Android). Sisanya (data/, feature/, notify/, …) adalah package di `:app`. `:app` hanya disertakan bila Android SDK terdeteksi, dan tiap modul memuat plugin-nya sendiri, supaya engine bisa di-build & dites tanpa Google Maven. |
+| D-03 | Versi library Google Maven | Environment build pertama memblokir `dl.google.com`, jadi versi AGP 8.13.0, Compose BOM 2025.09.00, Room 2.7.2, DataStore 1.1.7, Navigation 2.9.4, dll. dipilih tanpa verifikasi. Wajib dicek & disesuaikan saat pertama kali build dengan SDK. Kotlin 2.2.20, KSP 2.2.20-2.0.4, kotlinx.serialization 1.9.0, coroutines 1.10.2 sudah terverifikasi. |
+| D-04 | Repositori Maven | Mirror Maven Central milik Google (`maven-central.storage-download.googleapis.com`) dipasang paling depan karena Maven Central sering membalas 429; Maven Central tetap sebagai cadangan. |
+| D-05 | JDK 17 | Bytecode ditargetkan Java 17 (`jvmTarget`/`targetCompatibility` 17), boleh di-build dengan JDK ≥ 17. |
+| D-06 | Letak format data & backup | Record data (7.4) dan codec backup JSON (bab 11) ditulis Kotlin murni di `core/engine` (package `store`) supaya T-25 bisa dites tanpa Android. `data/` hanya memetakan entity Room ↔ record 1:1. |
+| D-07 | Kolom tambahan | `tx` ditambah `routine` (Nabung rutin, R-07), `closingOf` (transaksi Tutup Buku), `incomeKind`, `testMode` (Mode Uji). Nominal pos berversi disimpan di tabel `category_amount` (R-95); di JSON backup, nominal ada di dalam tiap `categories[].amounts`. |
+| D-08 | Transaksi Tutup Buku | Dicatat dengan tanggal saat dibuat + `closingOf = bulan yang ditutup`; bulan akuntansinya bulan yang ditutup, diproses setelah bulan itu berakhir. |
+| D-09 | Isi backup | Tidak ikut backup: hash PIN (bab 11), URI folder auto-backup (izin SAF khusus perangkat), status checklist transfer. |
+| D-10 | Signature `previewImpact` | `previewImpact(input, today, draft)` — memutar ulang ledger lengkap dengan draft, sehingga konsisten dengan R-60. |
+| D-11 | Tampilan talangan (R-04) | Kantong pertama "Sisa" = bawaan (atau Saku akhir bulan lalu yang positif bila belum Tutup Buku) + pemasukan ke Saku bulan ini. Hanya tampilan bayangan; tidak ada transaksi. |
+| D-12 | Cakupan talangan | Talangan dihitung untuk bulan berjalan saja. Bulan lampau yang belum punya gaji diselesaikan lewat Tutup Buku langkah 1. |
+| D-13 | Teks tile Transport | "Sisa budget" = budget − Σ jendela 1–4 (jendela tertutup memakai J penuh, jendela berjalan memakai terpakainya). "Trip n" = jumlah jendela bulan itu yang punya ≥ 1 pengeluaran Transport. |
+| D-14 | Opsi Tutup Buku langkah 6 | Jika Dana Darurat ≥ target, "Isi Dana Darurat" tetap tersedia di urutan terakhir. |
+| D-15 | Saran hemat R-14 butir 4 | "Sisa hari" termasuk hari ini. |
+| D-16 | Median anti-typo R-65 | Jumlah data genap → rata-rata dua nilai tengah (dibulatkan ke bawah ke rupiah). |
+| D-17 | Status STOK budget 0 | Budget 0 dengan pemakaian > 0 → `lebih`. |
+| D-18 | Transaksi bertanggal masa depan | Diabaikan ledger sampai tanggalnya tiba (dipakai setoran Nabung rutin gaji cepat, R-07). |
+| D-19 | Kewajiban TETAP bulan onboarding | Tidak dibuat (8.12: dianggap sudah dibayar). |
+| D-20 | Ikon launcher | Ikon dompet gaya Lucide putih di latar `primary`. Font Plus Jakarta Sans dibundel sebagai satu file variable font (sumbu `wght`). |
+| D-21 | Hutang besar saat proyeksi | Peringatan R-27 di layar input memakai hutang proyeksi (seolah hari ini ditutup sekarang). |
