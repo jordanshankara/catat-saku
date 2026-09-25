@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Detail Jatah Makan — Catat Uang</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:#12152A}
+button{font-family:inherit}
+a{color:#8FB0FF}a:hover{color:#C2D3FF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #12152A; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #F2F4FF; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center">
+<button type="button" aria-label="Kembali" style="width: 44px; height: 44px; border-radius: 14px; border: none; background: #1C2140; color: #F2F4FF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg></button>
+<span style="text-align: center; font-size: 17px; font-weight: 800">Jatah Makan</span>
+<span style="justify-self: end; font-size: 12px; font-weight: 700; color: #A3A9C7; background: #1C2140; padding: 6px 10px; border-radius: 999px">Sep</span>
+</div>
+
+<div style="background: #1C2140; border-radius: 24px; padding: 20px 16px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px">
+<div style="position: relative; width: 260px; height: 140px">
+<svg width="260" height="140" viewBox="0 0 260 140" aria-hidden="true">
+<path d="M 20 130 A 110 110 0 0 1 240 130" fill="none" stroke="#2C3360" stroke-width="16" stroke-linecap="round"></path>
+<path d="M 20 130 A 110 110 0 0 1 240 130" fill="none" stroke="#5B8CFF" stroke-width="16" stroke-linecap="round" pathLength="100" stroke-dasharray="70 100"></path>
+</svg>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 2px">
+<span style="font-size: 30px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums">Rp 15.000</span>
+<span style="font-size: 12px; color: #A3A9C7; font-weight: 600">sisa jatah hari ini</span>
+</div>
+</div>
+<div style="display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: #A3A9C7; font-weight: 600; font-variant-numeric: tabular-nums">
+<span>Terpakai Rp 35.000</span>
+<span>Jatah Rp 50.000</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<div style="background: #1C2140; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Sarapan</span>
+<span style="font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums">12rb</span>
+</div>
+<div style="background: #1C2140; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Siang</span>
+<span style="font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums">23rb</span>
+</div>
+<div style="background: #1C2140; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Malam</span>
+<span style="font-size: 14px; font-weight: 800; color: #6B7299">—</span>
+</div>
+<div style="background: #1C2140; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Jajan</span>
+<span style="font-size: 14px; font-weight: 800; color: #6B7299">—</span>
+</div>
+</div>
+
+<div style="background: #2B1C30; border: 1px solid rgba(255, 107, 129, 0.45); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #FFB3C0; font-weight: 600">Hutang makan</span>
+<span style="font-size: 22px; font-weight: 800; color: #FF8FA3; font-variant-numeric: tabular-nums">Rp 15.000</span>
+</div>
+<button type="button" style="border: 1px solid #FF8FA3; background: transparent; color: #FFD1D9; font-size: 12px; font-weight: 700; padding: 10px 12px; border-radius: 12px; cursor: pointer">Mode darurat</button>
+</div>
+<div style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #EBDDE3; font-weight: 500; line-height: 1.45">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3DD598" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M5 12l5 5 9-10"></path></svg>
+<span>Tahan di Rp 35rb sampai akhir hari — hutang lunas saat hari ditutup tengah malam.</span>
+</div>
+</div>
+
+<div style="background: #1C2140; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<span style="font-size: 14px; font-weight: 800">7 hari terakhir</span>
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600; display: flex; align-items: center; gap: 6px"><span style="width: 16px; border-top: 1.5px dashed #8C93BA; display: block"></span>jatah 50rb</span>
+</div>
+<div style="position: relative; height: 104px">
+<span style="position: absolute; left: 0; right: 0; bottom: 65px; border-top: 1.5px dashed #8C93BA; display: block"></span>
+<div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: end">
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="width: 100%; height: 62px; background: #5B8CFF; border-radius: 8px 8px 4px 4px; display: block"></span></div>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="font-size: 10px; font-weight: 700; color: #FF8FA3">+12</span><span style="width: 100%; height: 81px; background: #FF6B81; border-radius: 8px 8px 4px 4px; display: block"></span></div>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="width: 100%; height: 58px; background: #5B8CFF; border-radius: 8px 8px 4px 4px; display: block"></span></div>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="width: 100%; height: 65px; background: #5B8CFF; border-radius: 8px 8px 4px 4px; display: block"></span></div>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="font-size: 10px; font-weight: 700; color: #FF8FA3">+7</span><span style="width: 100%; height: 74px; background: #FF6B81; border-radius: 8px 8px 4px 4px; display: block"></span></div>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="font-size: 10px; font-weight: 700; color: #FF8FA3">+1</span><span style="width: 100%; height: 66px; background: #FF6B81; border-radius: 8px 8px 4px 4px; display: block"></span></div>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%"><span style="width: 100%; height: 45px; background: #3DD598; border-radius: 8px 8px 4px 4px; display: block; opacity: 0.85"></span></div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; font-size: 11px; color: #A3A9C7; font-weight: 600; text-align: center">
+<span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span><span style="color: #F2F4FF; font-weight: 800">Sen</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="background: #1C2140; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Hari hemat</span>
+<span style="font-size: 18px; font-weight: 800; color: #3DD598">16</span>
+</div>
+<div style="background: #1C2140; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Hari lebih</span>
+<span style="font-size: 18px; font-weight: 800; color: #FF8FA3">7</span>
+</div>
+<div style="background: #1C2140; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; color: #A3A9C7; font-weight: 600">Ke Saku Sisa</span>
+<span style="font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums">Rp 42rb</span>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
