@@ -14,6 +14,9 @@ import app.catatuang.engine.LedgerState
 import app.catatuang.engine.Tx
 import app.catatuang.engine.computeLedger
 import app.catatuang.engine.fixedObligationsFor
+import app.catatuang.engine.store.BackupCodec
+import app.catatuang.engine.store.BackupDocument
+import app.catatuang.engine.store.BackupReadResult
 import app.catatuang.engine.store.DataSnapshot
 import app.catatuang.engine.store.FixedObligationRecord
 import app.catatuang.engine.store.SettingsRecord
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -51,6 +55,8 @@ class CatatRepository(
     private val clock: AppClock,
     scope: CoroutineScope,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Salinan data asli selama Mode Uji Tanggal (8.11); null = Mode Uji tidak tersedia (test). */
+    private val testSnapshotFile: java.io.File? = null,
 ) {
     private val tables: Flow<DataSnapshot> = combine(
         dao.categories(), dao.categoryAmounts(), dao.monthPlans(), dao.allocations(), dao.transactions(),
@@ -148,7 +154,14 @@ class CatatRepository(
     val transferChecklist: Flow<Pair<String?, Int>> = settings.transferChecklist
     val cadanganBannerDismissed: Flow<String?> = settings.cadanganBannerDismissed
 
-    suspend fun setTransferChecklist(month: YearMonth?) = settings.setTransferChecklist(month?.toString())
+    suspend fun setTransferChecklist(month: YearMonth?) = settings.setTransferChecklist(month?.toString(), 0, clock.now().toString())
+    suspend fun bumpChecklistReminder(month: String, count: Int) = settings.setTransferChecklist(month, count)
+    val transferChecklistSince: Flow<String?> = settings.transferChecklistSince
+
+    /** R-66 "Hari ini beres": hanya menandai hari selesai dicatat. */
+    suspend fun markDayDone(date: LocalDate) = dao.upsertDayMark(app.catatuang.data.db.DayMarkEntity(date.toString(), true))
+
+    suspend fun updateSettings(transform: (SettingsRecord) -> SettingsRecord) = settings.update(transform)
     suspend fun dismissCadanganBanner(month: YearMonth) = settings.dismissCadanganBanner(month.toString())
 
     /** Hasil simpan gaji, untuk Urungkan. */
@@ -189,17 +202,94 @@ class CatatRepository(
         dao.unpayFixed(txId, obligation)
     }
 
+    // ---------- Pos (R-95, 8.11) ----------
+
+    suspend fun saveCategory(category: Category) {
+        val record = category.toRecord()
+        dao.saveCategory(record.toEntity(), record.amountEntities())
+    }
+
+    suspend fun nextCategoryId(): Long = (dao.categoriesNow().maxOfOrNull { it.id } ?: 0) + 1
+
+    // ---------- Tutup Buku (6.10) ----------
+
+    /** Langkah 1: tandai/batalkan "Bulan ini tanpa gaji". */
+    suspend fun setNoSalary(month: YearMonth, noSalary: Boolean) {
+        val m = month.toString()
+        val plan = dao.monthPlan(m) ?: MonthPlanEntity(m, null, noSalary = false, status = "OPEN", createdAt = now())
+        dao.upsertMonthPlan(plan.copy(noSalary = noSalary))
+    }
+
+    /** Langkah 5 "Tidak jadi" (R-43) / batalkan pilihan itu. */
+    suspend fun setFixedCancelled(month: YearMonth, categoryId: Long, estimate: Long, cancelled: Boolean) {
+        val old = dao.fixedObligationsNow().firstOrNull { it.yearMonth == month.toString() && it.categoryId == categoryId }
+            ?: FixedObligationRecord(month.toString(), categoryId, estimate).toEntity()
+        dao.upsertFixedObligations(listOf(old.copy(status = if (cancelled) "CANCELLED" else "UNPAID", paidTxId = null)))
+    }
+
+    suspend fun replaceTransactions(deleteIds: List<Long>, txs: List<Tx>): List<Long> {
+        val t = now()
+        return dao.replaceTxs(deleteIds, txs.mapIndexed { i, tx -> tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testModeOn()).toEntity() })
+    }
+
+    /** Selesaikan Tutup Buku: bulan read-only (R-64) + snapshot. */
+    suspend fun closeMonth(month: YearMonth, verdict: String, verdictAmount: Long, snapshotJson: String, reconciledActual: Long?) {
+        val m = month.toString()
+        val t = now()
+        val plan = (dao.monthPlan(m) ?: MonthPlanEntity(m, null, noSalary = false, status = "OPEN", createdAt = t)).copy(status = "CLOSED")
+        dao.closeMonth(plan, app.catatuang.data.db.MonthClosureEntity(m, verdict, verdictAmount, snapshotJson, reconciledActual, t))
+    }
+
+    val closingAutoOpened: Flow<String?> = settings.closingAutoOpened
+    suspend fun setClosingAutoOpened(month: YearMonth) = settings.setClosingAutoOpened(month.toString())
+
+    // ---------- Mode Uji Tanggal (8.11) ----------
+
+    val testModeDate: Flow<LocalDate?> = settings.testModeDate.map { it?.let(LocalDate::parse) }
+    private fun testModeOn(): Boolean = clock.override.value != null
+    val testModeAvailable: Boolean get() = testSnapshotFile != null
+
+    /** Pulihkan override jam uji setelah app dibuka ulang. */
+    suspend fun restoreTestClock() {
+        clock.override.value = settings.testModeDate.first()?.let(LocalDate::parse)
+    }
+
+    /**
+     * Nyalakan / geser tanggal Mode Uji. Saat pertama dinyalakan, seluruh data asli disalin ke file; semua
+     * yang dibuat selama mode uji hilang saat mode dimatikan karena data asli dipulihkan utuh.
+     */
+    suspend fun setTestDate(date: LocalDate) {
+        val file = testSnapshotFile ?: return
+        if (!file.exists()) {
+            val doc = BackupDocument.of(exportSnapshot(), "test-mode", java.time.LocalDateTime.now())
+            file.writeText(BackupCodec.encode(doc))
+        }
+        settings.setTestModeDate(date.toString())
+        clock.override.value = date
+    }
+
+    suspend fun exitTestMode() {
+        val file = testSnapshotFile ?: return
+        if (file.exists()) {
+            val result = BackupCodec.decode(file.readText())
+            if (result is BackupReadResult.Ok) restore(result.document.toSnapshot())
+            file.delete()
+        }
+        settings.setTestModeDate(null)
+        clock.override.value = null
+    }
+
     /** Simpan transaksi baru; id diberikan database. */
     suspend fun addTransaction(tx: Tx, testMode: Boolean = false): Long {
         val t = now()
-        return dao.insertTx(tx.copy(id = 0, createdAt = t).toRecord(updatedAt = t, testMode = testMode).toEntity())
+        return dao.insertTx(tx.copy(id = 0, createdAt = t).toRecord(updatedAt = t, testMode = testMode || testModeOn()).toEntity())
     }
 
     /** Beberapa transaksi dalam satu transaksi database (Mode Darurat, Pakai Tabungan + pengeluaran). */
     suspend fun addTransactions(txs: List<Tx>, testMode: Boolean = false): List<Long> {
         val t = now()
         return dao.insertTxBatch(txs.mapIndexed { i, tx ->
-            tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testMode).toEntity()
+            tx.copy(id = 0, createdAt = t + i).toRecord(updatedAt = t + i, testMode = testMode || testModeOn()).toEntity()
         })
     }
 
@@ -244,6 +334,45 @@ class CatatRepository(
             dayMarks = dao.dayMarksNow().map { it.toRecord() },
             closures = dao.closuresNow().map { it.toRecord() },
         )
+    }
+
+    val backupFolderUri: Flow<String?> = settings.backupFolderUri
+    val lastFolderBackup: Flow<String?> = settings.lastFolderBackup
+    suspend fun setBackupFolder(uri: String?) = settings.setBackupFolder(uri)
+    suspend fun setLastFolderBackup(value: String) = settings.setLastFolderBackup(value)
+    val pin: Flow<StoredPin?> = settings.pin
+
+    enum class PinChange { OK, WRONG, LOCKED }
+
+    /**
+     * Ganti PIN (8.11): PIN lama wajib benar. Salah PIN lama ikut hitungan & jeda yang sama dengan
+     * layar kunci (8.14), jadi layar ini tidak bisa dipakai menebak PIN tanpa batas.
+     */
+    suspend fun changePin(old: String, new: String): PinChange = kotlinx.coroutines.withContext(Dispatchers.Default) {
+        val attempts = app.catatuang.security.PinAttempts(now)
+        val (failures, until) = settings.pinAttempts.first()
+        attempts.restore(failures, until)
+        if (!attempts.canTry()) return@withContext PinChange.LOCKED
+        val stored = settings.pin.first() ?: return@withContext PinChange.WRONG
+        if (!app.catatuang.security.PinHasher.verify(old, stored)) {
+            attempts.onFailure()
+            settings.setPinAttempts(attempts.failures, attempts.lockedUntilMillis)
+            return@withContext if (attempts.canTry()) PinChange.WRONG else PinChange.LOCKED
+        }
+        require(app.catatuang.security.PinHasher.isValidFormat(new))
+        settings.setPin(app.catatuang.security.PinHasher.hash(new))
+        PinChange.OK
+    }
+
+    /**
+     * Pulihkan dari file backup (bab 11): ganti seluruh data, lalu hapus PIN lama supaya pengguna membuat
+     * PIN baru. Folder auto-backup di HP ini tetap dipakai. Tidak boleh saat Mode Uji aktif.
+     */
+    suspend fun restoreFromBackup(snapshot: DataSnapshot) {
+        check(settings.testModeDate.first() == null) { "Matikan Mode Uji dulu" }
+        restore(snapshot)
+        settings.setPin(null)
+        settings.setTransferChecklist(null)
     }
 
     /** Pulihkan: ganti seluruh data dalam satu transaksi database, lalu pengaturan (bab 11). */

@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
 class LockManager(
     private val timeoutMinutes: () -> Int,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Jam monotonik untuk lama di-background: mengubah jam HP tidak bisa melewati kunci. */
+    private val monotonic: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) : DefaultLifecycleObserver {
     private val _locked = MutableStateFlow(true)
     val locked: StateFlow<Boolean> = _locked.asStateFlow()
@@ -20,13 +22,14 @@ class LockManager(
     private var backgroundAt: Long? = null
 
     override fun onStop(owner: LifecycleOwner) {
-        backgroundAt = clock()
+        backgroundAt = monotonic()
     }
 
     override fun onStart(owner: LifecycleOwner) {
         val since = backgroundAt ?: return
         backgroundAt = null
-        if (clock() - since >= timeoutMinutes() * 60_000L) _locked.value = true
+        val elapsed = monotonic() - since
+        if (elapsed < 0 || elapsed >= timeoutMinutes() * 60_000L) _locked.value = true
     }
 
     fun unlock() {

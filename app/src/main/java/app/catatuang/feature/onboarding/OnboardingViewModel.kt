@@ -96,4 +96,9 @@ class OnboardingViewModel(
             onDone()
         }
     }
+
+    /** 8.12 / bab 11: Pulihkan dari Backup di layar pertama. PIN baru dibuat sesudahnya. */
+    fun restore(snapshot: app.catatuang.engine.store.DataSnapshot) {
+        viewModelScope.launch { repo.restoreFromBackup(snapshot) }
+    }
 }

@@ -114,6 +114,32 @@ interface CatatDao {
         upsertFixedObligations(listOf(obligation.copy(status = "UNPAID", paidTxId = null)))
     }
 
+    @Query("SELECT * FROM month_plan WHERE yearMonth = :yearMonth") suspend fun monthPlan(yearMonth: String): MonthPlanEntity?
+
+    /** Ganti sekumpulan transaksi (mis. ulang cocokkan saldo) dalam satu transaksi database. */
+    @Transaction
+    suspend fun replaceTxs(deleteIds: List<Long>, items: List<TxEntity>): List<Long> {
+        deleteIds.forEach { deleteTx(it) }
+        return items.map { insertTx(it) }
+    }
+
+    /** Tutup Buku selesai (6.10): bulan CLOSED + snapshot angka. */
+    @Transaction
+    suspend fun closeMonth(plan: MonthPlanEntity, closure: MonthClosureEntity) {
+        upsertMonthPlan(plan)
+        upsertClosure(closure)
+    }
+
+    @Query("DELETE FROM category_amount WHERE categoryId = :categoryId") suspend fun deleteCategoryAmounts(categoryId: Long)
+
+    /** R-95: simpan pos beserta seluruh riwayat nominalnya. */
+    @Transaction
+    suspend fun saveCategory(category: CategoryEntity, amounts: List<CategoryAmountEntity>) {
+        upsertCategories(listOf(category))
+        deleteCategoryAmounts(category.id)
+        insertCategoryAmounts(amounts)
+    }
+
     /** Beberapa transaksi dalam satu transaksi database (mis. Mode Darurat, 7.3). */
     @Transaction
     suspend fun insertTxBatch(items: List<TxEntity>): List<Long> = items.map { insertTx(it) }

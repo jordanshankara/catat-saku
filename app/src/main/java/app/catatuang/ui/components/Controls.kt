@@ -75,7 +75,7 @@ fun <T> ChoiceChips(options: List<Pair<T, String>>, selected: T?, onSelect: (T) 
             val on = value == selected
             Row(
                 Modifier.heightIn(min = CatatShapes.minTouch).clip(CatatShapes.chip)
-                    .background(if (on) Color(0xFFE3E9FF) else c.surface)
+                    .background(if (on) c.infoBg else c.surface)
                     .border(1.5.dp, if (on) c.primary else c.divider, CatatShapes.chip)
                     .clickable(role = Role.RadioButton) { onSelect(value) }
                     .semantics { this.selected = on }
@@ -85,7 +85,7 @@ fun <T> ChoiceChips(options: List<Pair<T, String>>, selected: T?, onSelect: (T) 
             ) {
                 if (on) Icon(LucideIcons.Check, contentDescription = null, tint = c.primary, modifier = Modifier.size(14.dp))
                 Text(label, style = CatatType.bodySmall.copy(fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold),
-                    color = if (on) Color(0xFF1E3A9E) else c.textPrimary)
+                    color = if (on) c.selectedText else c.textPrimary)
             }
         }
     }

@@ -52,7 +52,10 @@ import app.catatuang.engine.CategoryKind
 import app.catatuang.engine.Slot
 import app.catatuang.engine.Tx
 import app.catatuang.engine.TxType
+import app.catatuang.engine.correctionTx
 import app.catatuang.engine.recordMonth
+import app.catatuang.engine.refundCategories
+import app.catatuang.ui.components.ChoiceChips
 import app.catatuang.feature.common.LedgerViewModel
 import app.catatuang.feature.input.appendDigits
 import app.catatuang.feature.input.backspace
@@ -174,7 +177,7 @@ private fun FilterChip(text: String, on: Boolean, onClick: () -> Unit) {
         text,
         style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold),
         color = if (on) Color.White else c.textPrimary,
-        modifier = Modifier.clip(CatatShapes.chip).background(if (on) c.primary else c.surface)
+        modifier = Modifier.clip(CatatShapes.chip).background(if (on) c.primaryFill else c.surface)
             .border(1.dp, if (on) c.primary else c.divider, CatatShapes.chip).clickable(role = Role.Tab, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     )
@@ -193,6 +196,7 @@ fun EditTxSheet(tx: Tx, ready: AppState.Ready, vm: LedgerViewModel, onDismiss: (
     var note by remember { mutableStateOf(tx.note.orEmpty()) }
     var slot by remember { mutableStateOf(tx.slot) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var correcting by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), shape = CatatShapes.sheet, containerColor = c.surface) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -203,9 +207,14 @@ fun EditTxSheet(tx: Tx, ready: AppState.Ready, vm: LedgerViewModel, onDismiss: (
                 }
                 if (locked) StatusPill("Terkunci", Tone.NEUTRAL)
             }
+            if (correcting) {
+                CorrectionForm(tx, ready, vm, onDone = onDismiss)
+                Spacer(Modifier.height(4.dp))
+                return@Column
+            }
             Text("Rp ${digits(amount)}", style = CatatType.inputAmount.copy(fontSize = 40.sp), color = c.textPrimary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             when {
-                locked -> NoticeBox("Bulan ini sudah ditutup. Koreksi dicatat di bulan berjalan (tersedia bersama Tutup Buku).", Tone.WARNING)
+                locked -> NoticeBox("Bulan ini sudah ditutup (read-only). Salah catat? Buat koreksi — dicatat di bulan berjalan.", Tone.WARNING)
                 !isEditable(tx) -> NoticeBox("Transaksi ini dibuat oleh alurnya sendiri; ubah lewat alur tersebut.", Tone.NEUTRAL)
             }
             if (editable) {
@@ -232,7 +241,8 @@ fun EditTxSheet(tx: Tx, ready: AppState.Ready, vm: LedgerViewModel, onDismiss: (
                 })
                 SecondaryButton("Hapus transaksi", onClick = { confirmDelete = true })
             } else {
-                SecondaryButton(if (locked) "Buat koreksi (segera)" else "Tutup", enabled = !locked, onClick = onDismiss)
+                if (locked) PrimaryButton("Buat koreksi", onClick = { correcting = true })
+                else SecondaryButton("Tutup", onClick = onDismiss)
             }
             Spacer(Modifier.height(4.dp))
         }
@@ -246,4 +256,33 @@ fun EditTxSheet(tx: Tx, ready: AppState.Ready, vm: LedgerViewModel, onDismiss: (
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
         )
     }
+}
+
+/** R-64 Koreksi bulan tertutup: pos + nominal ± + catatan wajib, dicatat hari ini di bulan berjalan. */
+@Composable
+private fun CorrectionForm(source: Tx, ready: AppState.Ready, vm: LedgerViewModel, onDone: () -> Unit) {
+    val c = CatatTheme.colors
+    val cats = ready.input.categories
+    val options = refundCategories(cats, ready.ledger.currentMonth)
+    var categoryId by remember { mutableStateOf(source.categoryId?.takeIf { id -> options.any { it.id == id } }) }
+    var add by remember { mutableStateOf(true) }
+    var amount by remember { mutableLongStateOf(0L) }
+    var note by remember { mutableStateOf("") }
+    Text("Koreksi · dicatat ${shortDate(ready.today)}", style = CatatType.cardTitle, color = c.textPrimary)
+    ChoiceChips(options.map { it.id to it.name }, categoryId, onSelect = { categoryId = it })
+    ChoiceChips(listOf(true to "Tambah terpakai", false to "Kurangi terpakai"), add, onSelect = { add = it })
+    Text((if (add) "+" else "−") + "Rp ${digits(amount)}", style = CatatType.inputAmount.copy(fontSize = 36.sp), color = c.textPrimary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(
+        value = note, onValueChange = { note = it.take(80) }, label = { Text("Catatan (wajib)") }, singleLine = true, shape = CatatShapes.chip,
+        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.primary, unfocusedBorderColor = c.divider),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Numpad(onDigits = { amount = appendDigits(amount, it) }, onBackspace = { amount = backspace(amount) })
+    val id = categoryId
+    PrimaryButton("Simpan koreksi", enabled = id != null && amount > 0 && note.isNotBlank(), onClick = {
+        val signed = if (add) amount else -amount
+        val name = cats.firstOrNull { it.id == id }?.name ?: "pos"
+        vm.saveAll(listOf(correctionTx(id!!, signed, ready.today, note)), "Koreksi $name ${if (add) "+" else "−"}${rp(amount)}", Tone.WARNING, detailCategoryId = id)
+        onDone()
+    })
 }

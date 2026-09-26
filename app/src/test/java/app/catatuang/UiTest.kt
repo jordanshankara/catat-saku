@@ -53,7 +53,8 @@ class UiTest {
 
     private fun dismissDayQuestion() {
         if (rule.onAllNodesWithText("Untuk hari ini atau kemarin?").fetchSemanticsNodes().isNotEmpty()) {
-            rule.onNodeWithText("Hari ini").performClick()
+            // Tombol dialog (bukan chip tanggal yang juga bertuliskan "Hari ini").
+            rule.onAllNodesWithText("Hari ini").let { n -> n[n.fetchSemanticsNodes().lastIndex] }.performClick()
         }
     }
 

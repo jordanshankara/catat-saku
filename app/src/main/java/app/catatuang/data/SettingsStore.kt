@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.map
 
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
+/** Hash PIN & hitungan salah PIN: file terpisah yang dikecualikan dari backup Android (backup_rules.xml & data_extraction_rules.xml). */
+val Context.secureDataStore: DataStore<Preferences> by preferencesDataStore(name = "secure")
+
 /** Hash PIN tersimpan (8.14, bagian 3): PBKDF2 + salt acak, tidak pernah PIN aslinya. */
 data class StoredPin(val hash: String, val salt: String)
 
@@ -25,13 +28,17 @@ data class StoredPin(val hash: String, val salt: String)
  * Pengaturan di DataStore (7.4). Nilai yang ikut backup ada di [SettingsRecord]; hash PIN,
  * URI folder backup, dan checklist transfer sengaja dipisah karena tidak ikut backup (D-09).
  */
-class SettingsStore(private val store: DataStore<Preferences>) {
+class SettingsStore(private val store: DataStore<Preferences>, private val secure: DataStore<Preferences> = store) {
 
     val settings: Flow<SettingsRecord> = store.data.map(::read)
 
-    val pin: Flow<StoredPin?> = store.data.map { p ->
-        val h = p[PIN_HASH]; val s = p[PIN_SALT]
-        if (h != null && s != null) StoredPin(h, s) else null
+    /** Hash PIN dari file aman; jatuh ke lokasi lama bila migrasi belum jalan (jangan pernah dianggap "tanpa PIN"). */
+    val pin: Flow<StoredPin?> = kotlinx.coroutines.flow.combine(secure.data, store.data) { sp, old ->
+        fun read(p: Preferences): StoredPin? {
+            val h = p[PIN_HASH]; val salt = p[PIN_SALT]
+            return if (h != null && salt != null) StoredPin(h, salt) else null
+        }
+        read(sp) ?: read(old)
     }
 
     val backupFolderUri: Flow<String?> = store.data.map { it[BACKUP_URI] }
@@ -39,11 +46,35 @@ class SettingsStore(private val store: DataStore<Preferences>) {
     /** Bulan split terakhir yang checklist transfer-nya belum dicentang (R-57), dan berapa kali sudah diingatkan. */
     val transferChecklist: Flow<Pair<String?, Int>> = store.data.map { it[CHECKLIST_MONTH] to (it[CHECKLIST_REMINDERS] ?: 0) }
 
+    /** Tanggal checklist dibuat; pengingat mulai esok harinya jam 09:00 (R-57). */
+    val transferChecklistSince: Flow<String?> = store.data.map { it[CHECKLIST_SINCE] }
+
     /** Bulan yang banner cadangan tanggal 1-nya sudah ditutup (R-14 butir 2). */
     val cadanganBannerDismissed: Flow<String?> = store.data.map { it[CADANGAN_DISMISSED] }
 
     suspend fun dismissCadanganBanner(month: String) {
         store.edit { it[CADANGAN_DISMISSED] = month }
+    }
+
+    /** Hasil backup ke folder terakhir: "2026-09-27T23:00|catatuang-backup-….json" atau "…|GAGAL: alasan". */
+    val lastFolderBackup: Flow<String?> = store.data.map { it[LAST_FOLDER_BACKUP] }
+
+    suspend fun setLastFolderBackup(value: String) {
+        store.edit { it[LAST_FOLDER_BACKUP] = value }
+    }
+
+    /** Mode Uji Tanggal (8.11): tanggal "hari ini" palsu; null = mati. */
+    val testModeDate: Flow<String?> = store.data.map { it[TEST_MODE_DATE] }
+
+    suspend fun setTestModeDate(date: String?) {
+        store.edit { if (date == null) it.remove(TEST_MODE_DATE) else it[TEST_MODE_DATE] = date }
+    }
+
+    /** Bulan yang Tutup Buku-nya sudah dibuka otomatis sekali (6.10). */
+    val closingAutoOpened: Flow<String?> = store.data.map { it[CLOSING_AUTO_OPENED] }
+
+    suspend fun setClosingAutoOpened(month: String) {
+        store.edit { it[CLOSING_AUTO_OPENED] = month }
     }
 
     suspend fun current(): SettingsRecord = settings.first()
@@ -56,8 +87,28 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         store.edit { p -> write(p, record) }
     }
 
+    /** Hitungan salah PIN (8.14) — disimpan supaya jeda tidak hilang saat app ditutup paksa. */
+    val pinAttempts: Flow<Pair<Int, Long>> = secure.data.map { (it[PIN_FAILURES] ?: 0) to (it[PIN_LOCKED_UNTIL] ?: 0L) }
+
+    suspend fun setPinAttempts(failures: Int, lockedUntil: Long) {
+        secure.edit { it[PIN_FAILURES] = failures; it[PIN_LOCKED_UNTIL] = lockedUntil }
+    }
+
+    /** Pindahkan hash PIN versi lama (≤ 0.5.0) dari file pengaturan ke file aman. */
+    suspend fun migrateSecure() {
+        if (secure === store) return
+        val old = store.data.first()
+        val h = old[PIN_HASH]; val salt = old[PIN_SALT]
+        if (h != null && salt != null) {
+            secure.edit { p -> if (p[PIN_HASH] == null) { p[PIN_HASH] = h; p[PIN_SALT] = salt } }
+            store.edit { it.remove(PIN_HASH); it.remove(PIN_SALT) }
+        }
+    }
+
     suspend fun setPin(pin: StoredPin?) {
-        store.edit { p ->
+        setPinAttempts(0, 0)
+        if (secure !== store) store.edit { it.remove(PIN_HASH); it.remove(PIN_SALT) }
+        secure.edit { p ->
             if (pin == null) { p.remove(PIN_HASH); p.remove(PIN_SALT) } else { p[PIN_HASH] = pin.hash; p[PIN_SALT] = pin.salt }
         }
     }
@@ -66,10 +117,11 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         store.edit { p -> if (uri == null) p.remove(BACKUP_URI) else p[BACKUP_URI] = uri }
     }
 
-    suspend fun setTransferChecklist(month: String?, reminders: Int = 0) {
+    suspend fun setTransferChecklist(month: String?, reminders: Int = 0, since: String? = null) {
         store.edit { p ->
             if (month == null) p.remove(CHECKLIST_MONTH) else p[CHECKLIST_MONTH] = month
             p[CHECKLIST_REMINDERS] = reminders
+            if (since != null) p[CHECKLIST_SINCE] = since
         }
     }
 
@@ -128,6 +180,12 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val BACKUP_URI = stringPreferencesKey("backup_folder_uri")
         val CHECKLIST_MONTH = stringPreferencesKey("transfer_checklist_month")
         val CHECKLIST_REMINDERS = intPreferencesKey("transfer_checklist_reminders")
+        val CHECKLIST_SINCE = stringPreferencesKey("transfer_checklist_since")
         val CADANGAN_DISMISSED = stringPreferencesKey("cadangan_banner_dismissed")
+        val PIN_FAILURES = intPreferencesKey("pin_failures")
+        val PIN_LOCKED_UNTIL = longPreferencesKey("pin_locked_until")
+        val TEST_MODE_DATE = stringPreferencesKey("test_mode_date")
+        val LAST_FOLDER_BACKUP = stringPreferencesKey("last_folder_backup")
+        val CLOSING_AUTO_OPENED = stringPreferencesKey("closing_auto_opened")
     }
 }

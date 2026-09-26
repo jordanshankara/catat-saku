@@ -34,6 +34,22 @@ data class CatatColors(
     val textSecondary: Color,
     val divider: Color,
     val isDark: Boolean,
+    /** Latar chip terpilih / info. */
+    val infoBg: Color = Color(0xFFE3E9FF),
+    /** Teks chip terpilih. */
+    val selectedText: Color = Color(0xFF1E3A9E),
+    /** Judul & ikon di banner emas Gajian. */
+    val goldTitle: Color = Color(0xFF3D2A00),
+    /** Teks tombol Pemasukan (hijau). */
+    val incomeText: Color = Color(0xFF0F6B45),
+    /** Latar isian teks. */
+    val inputContainer: Color = Color(0xFFFAFBFE),
+    /** Latar tombol numpad. */
+    val keyBg: Color = Color(0xFFF3F4FA),
+    /** Isi tombol berteks/ikon putih (kontras putih ≥ 4.5:1 di kedua tema). */
+    val primaryFill: Color = Color(0xFF3563E9),
+    val successFill: Color = Color(0xFF17865A),
+    val dangerFill: Color = Color(0xFFB3243F),
 ) {
     val heroGradient: Brush
         get() = Brush.linearGradient(listOf(gradientStart, gradientEnd))
@@ -80,6 +96,23 @@ val DarkCatatColors = LightCatatColors.copy(
     textPrimary = Color(0xFFF2F4FF),
     textSecondary = Color(0xFFA3A9C7),
     isDark = true,
+    // Token sisanya diturunkan dari palet gelap bagian 12 supaya kontras teks tetap ≥ 4.5:1.
+    successBg = Color(0xFF15372F),
+    warningText = Color(0xFFFFC870),
+    warningBg = Color(0xFF3A2E17),
+    savings = Color(0xFFB79CFF),
+    savingsBg = Color(0xFF2A2150),
+    emergency = Color(0xFF6CCFE6),
+    emergencyBg = Color(0xFF12323C),
+    goldBg = Color(0xFF3A3018),
+    goldText = Color(0xFFF2C14E),
+    divider = Color(0xFF3A4170),
+    infoBg = Color(0xFF26306A),
+    selectedText = Color(0xFFDCE4FF),
+    goldTitle = Color(0xFFFFE3A3),
+    incomeText = Color(0xFF3DD598),
+    inputContainer = Color(0xFF1C2140),
+    keyBg = Color(0xFF1C2140),
 )
 
 /** Warna ikon pos (latar / ikon). */

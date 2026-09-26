@@ -41,6 +41,10 @@ data class UiEvent(
  * Semua hitungan tetap di core/engine; di sini hanya meneruskan aksi ke repository.
  */
 class LedgerViewModel(private val repo: CatatRepository) : ViewModel() {
+    companion object {
+        const val LOADING = "loading"
+    }
+
     val state: StateFlow<AppState> = repo.state
 
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
@@ -116,6 +120,55 @@ class LedgerViewModel(private val repo: CatatRepository) : ViewModel() {
         if (txs.isEmpty()) return
         saveAll(txs, feedback = "Saku Sisa ditutup ${rp(txs.sumOf { it.amount })} dari kantong", tone = Tone.WARNING, snackbar = "Saku Sisa ditutup")
     }
+
+    // ---------- Tutup Buku (6.10) ----------
+    val testModeDate: StateFlow<java.time.LocalDate?> = repo.testModeDate.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /** [LOADING] sampai DataStore terbaca, supaya Tutup Buku tidak terbuka dua kali. */
+    val closingAutoOpened: StateFlow<String?> = repo.closingAutoOpened.stateIn(viewModelScope, SharingStarted.Eagerly, LOADING)
+    val testModeAvailable: Boolean get() = repo.testModeAvailable
+
+    fun markClosingAutoOpened(month: YearMonth) { viewModelScope.launch { repo.setClosingAutoOpened(month) } }
+    suspend fun setNoSalary(month: YearMonth, value: Boolean) = repo.setNoSalary(month, value)
+    suspend fun setFixedCancelled(month: YearMonth, categoryId: Long, estimate: Long, cancelled: Boolean) =
+        repo.setFixedCancelled(month, categoryId, estimate, cancelled)
+    suspend fun replaceTransactions(deleteIds: List<Long>, txs: List<Tx>) = repo.replaceTransactions(deleteIds, txs)
+    suspend fun addAll(txs: List<Tx>) = repo.addTransactions(txs)
+    suspend fun payFixedNow(month: YearMonth, tx: Tx, estimate: Long) = repo.payFixed(month, tx, estimate)
+    suspend fun closeMonth(month: YearMonth, verdict: String, amount: Long, snapshotJson: String, reconciled: Long?) =
+        repo.closeMonth(month, verdict, amount, snapshotJson, reconciled)
+
+    fun shareBackup(context: android.content.Context) {
+        viewModelScope.launch { app.catatuang.export.shareBackup(context, repo) }
+    }
+
+    fun updateSettings(transform: (app.catatuang.engine.store.SettingsRecord) -> app.catatuang.engine.store.SettingsRecord) {
+        viewModelScope.launch { repo.updateSettings(transform) }
+    }
+
+    // ---------- Pos (R-95) ----------
+    fun saveCategory(category: app.catatuang.engine.Category, message: String) {
+        viewModelScope.launch {
+            repo.saveCategory(category)
+            _events.emit(UiEvent(null, Tone.SUCCESS, message, undo = null))
+        }
+    }
+
+    suspend fun nextCategoryId(): Long = repo.nextCategoryId()
+
+    suspend fun changePin(old: String, new: String) = repo.changePin(old, new)
+
+    // ---------- Backup (bab 11) ----------
+    val backupFolderUri: StateFlow<String?> = repo.backupFolderUri.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val lastFolderBackup: StateFlow<String?> = repo.lastFolderBackup.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setBackupFolder(uri: String?) { viewModelScope.launch { repo.setBackupFolder(uri) } }
+
+    fun restoreFromBackup(snapshot: app.catatuang.engine.store.DataSnapshot) {
+        viewModelScope.launch { repo.restoreFromBackup(snapshot) }
+    }
+
+    fun setTestDate(date: java.time.LocalDate) { viewModelScope.launch { repo.setTestDate(date) } }
+    fun exitTestMode() { viewModelScope.launch { repo.exitTestMode() } }
 
     fun update(old: Tx, new: Tx) {
         viewModelScope.launch {

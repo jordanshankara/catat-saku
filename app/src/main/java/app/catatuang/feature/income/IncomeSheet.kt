@@ -150,7 +150,7 @@ fun IncomeContent(ready: AppState.Ready, vm: LedgerViewModel, onSaved: () -> Uni
         PrimaryButton(
             text = if (amount > 0) "Simpan · ${rp(amount)}" else "Simpan",
             enabled = tx != null,
-            color = c.success,
+            color = c.successFill,
             onClick = {
                 val t = tx ?: return@PrimaryButton
                 vm.saveAll(listOf(t), incomeFeedback(t, cats), Tone.SUCCESS, detailCategoryId = t.categoryId)

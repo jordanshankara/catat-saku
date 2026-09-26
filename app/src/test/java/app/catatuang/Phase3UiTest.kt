@@ -58,6 +58,7 @@ class Phase3UiTest {
 
     private fun show() {
         env.lock.markUnlocked()
+        env.skipAutoClosing()
         rule.setContent { CatatUangTheme { CatatRoot(env.repo, env.settings, env.lock, env.clock) } }
     }
 

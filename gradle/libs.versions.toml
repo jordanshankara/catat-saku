@@ -16,6 +16,7 @@ datastore = "1.2.1"
 coreKtx = "1.19.1"
 junit4 = "4.13.2"
 robolectric = "4.17"
+glance = "1.2.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -39,6 +40,7 @@ androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
