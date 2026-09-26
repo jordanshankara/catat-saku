@@ -122,10 +122,10 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(c.gold), contentAlignment = Alignment.Center) {
-                    Icon(LucideIcons.Wallet, contentDescription = null, tint = Color(0xFF5C3D00), modifier = Modifier.size(22.dp))
+                    Icon(LucideIcons.Wallet, contentDescription = null, tint = c.goldTitle, modifier = Modifier.size(22.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(b.title, style = CatatType.cardTitle, color = Color(0xFF3D2A00))
+                    Text(b.title, style = CatatType.cardTitle, color = c.goldTitle)
                     Text(b.subtitle, style = CatatType.caption.copy(fontWeight = FontWeight.Medium), color = c.goldText)
                 }
                 Text("Input", style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color.White,
@@ -156,8 +156,8 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(LucideIcons.TrendingUp, contentDescription = null, tint = Color(0xFF0F6B45), modifier = Modifier.size(16.dp))
-                Text("Pemasukan", style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF0F6B45))
+                Icon(LucideIcons.TrendingUp, contentDescription = null, tint = c.incomeText, modifier = Modifier.size(16.dp))
+                Text("Pemasukan", style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold), color = c.incomeText)
             }
         }
 
@@ -195,7 +195,7 @@ private fun FixedCard(items: List<FixedDue>, onPay: (FixedDue) -> Unit) {
                     }
                 }
                 Text("Bayar", style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color.White,
-                    modifier = Modifier.clip(CatatShapes.chip).background(c.primary).clickable(role = Role.Button) { onPay(f) }
+                    modifier = Modifier.clip(CatatShapes.chip).background(c.primaryFill).clickable(role = Role.Button) { onPay(f) }
                         .padding(horizontal = 14.dp, vertical = 12.dp))
             }
         }

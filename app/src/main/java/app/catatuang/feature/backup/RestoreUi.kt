@@ -23,10 +23,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Baca & validasi file backup yang dipilih (bab 11). */
+private const val MAX_BACKUP_BYTES = 20 * 1024 * 1024
+
 suspend fun readBackup(context: Context, uri: Uri): BackupReadResult = withContext(Dispatchers.IO) {
-    runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }
-        .getOrNull()?.let(BackupCodec::decode)
-        ?: BackupReadResult.Invalid("File tidak bisa dibaca.")
+    val bytes = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            // Batasi ukuran supaya file raksasa tidak membuat app kehabisan memori.
+            val buffer = java.io.ByteArrayOutputStream()
+            val chunk = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(chunk)
+                if (n < 0) break
+                buffer.write(chunk, 0, n)
+                if (buffer.size() > MAX_BACKUP_BYTES) return@runCatching null
+            }
+            buffer.toByteArray()
+        }
+    }.getOrNull() ?: return@withContext BackupReadResult.Invalid("File tidak bisa dibaca atau terlalu besar (maks 20 MB).")
+    BackupCodec.decode(bytes.decodeToString())
 }
 
 /** Pemilih file backup (SAF `ACTION_OPEN_DOCUMENT`). */

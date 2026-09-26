@@ -202,6 +202,15 @@ class CatatRepository(
         dao.unpayFixed(txId, obligation)
     }
 
+    // ---------- Pos (R-95, 8.11) ----------
+
+    suspend fun saveCategory(category: Category) {
+        val record = category.toRecord()
+        dao.saveCategory(record.toEntity(), record.amountEntities())
+    }
+
+    suspend fun nextCategoryId(): Long = (dao.categoriesNow().maxOfOrNull { it.id } ?: 0) + 1
+
     // ---------- Tutup Buku (6.10) ----------
 
     /** Langkah 1: tandai/batalkan "Bulan ini tanpa gaji". */
@@ -332,6 +341,28 @@ class CatatRepository(
     suspend fun setBackupFolder(uri: String?) = settings.setBackupFolder(uri)
     suspend fun setLastFolderBackup(value: String) = settings.setLastFolderBackup(value)
     val pin: Flow<StoredPin?> = settings.pin
+
+    enum class PinChange { OK, WRONG, LOCKED }
+
+    /**
+     * Ganti PIN (8.11): PIN lama wajib benar. Salah PIN lama ikut hitungan & jeda yang sama dengan
+     * layar kunci (8.14), jadi layar ini tidak bisa dipakai menebak PIN tanpa batas.
+     */
+    suspend fun changePin(old: String, new: String): PinChange = kotlinx.coroutines.withContext(Dispatchers.Default) {
+        val attempts = app.catatuang.security.PinAttempts(now)
+        val (failures, until) = settings.pinAttempts.first()
+        attempts.restore(failures, until)
+        if (!attempts.canTry()) return@withContext PinChange.LOCKED
+        val stored = settings.pin.first() ?: return@withContext PinChange.WRONG
+        if (!app.catatuang.security.PinHasher.verify(old, stored)) {
+            attempts.onFailure()
+            settings.setPinAttempts(attempts.failures, attempts.lockedUntilMillis)
+            return@withContext if (attempts.canTry()) PinChange.WRONG else PinChange.LOCKED
+        }
+        require(app.catatuang.security.PinHasher.isValidFormat(new))
+        settings.setPin(app.catatuang.security.PinHasher.hash(new))
+        PinChange.OK
+    }
 
     /**
      * Pulihkan dari file backup (bab 11): ganti seluruh data, lalu hapus PIN lama supaya pengguna membuat

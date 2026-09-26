@@ -188,7 +188,7 @@ fun InputContent(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             shape = CatatShapes.chip,
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.primary, unfocusedBorderColor = c.divider,
-                focusedContainerColor = Color(0xFFFAFBFE), unfocusedContainerColor = Color(0xFFFAFBFE)),
+                focusedContainerColor = c.inputContainer, unfocusedContainerColor = c.inputContainer),
             modifier = Modifier.fillMaxWidth(),
         )
 

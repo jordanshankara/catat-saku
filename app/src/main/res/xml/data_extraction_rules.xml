@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup cloud & pindah perangkat (API 31+): hash PIN & snapshot Mode Uji tidak ikut. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/secure.preferences_pb" />
+        <exclude domain="file" path="testmode-snapshot.json" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/secure.preferences_pb" />
+        <exclude domain="file" path="testmode-snapshot.json" />
+    </device-transfer>
+</data-extraction-rules>

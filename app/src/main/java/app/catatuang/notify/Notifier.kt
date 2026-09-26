@@ -26,13 +26,15 @@ object Notifier {
         }
     }
 
-    private fun openIntent(context: Context, route: String, requestCode: Int): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java)
-            .setAction("app.catatuang.OPEN.$route")
-            .putExtra(EXTRA_ROUTE, route)
-            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    }
+    /** Intent eksplisit ke MainActivity yang membawa rute + token app (notifikasi & widget). */
+    fun routeIntent(context: Context, route: String): Intent = Intent(context, MainActivity::class.java)
+        .setAction("app.catatuang.OPEN.$route")
+        .putExtra(EXTRA_ROUTE, route)
+        .putExtra(app.catatuang.security.LinkToken.EXTRA, app.catatuang.security.LinkToken.get(context))
+        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+    private fun openIntent(context: Context, route: String, requestCode: Int): PendingIntent =
+        PendingIntent.getActivity(context, requestCode, routeIntent(context, route), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     private fun broadcastIntent(context: Context, action: String, notifId: Int): PendingIntent {
         val intent = Intent(context, AlarmReceiver::class.java).setAction(action).putExtra(AlarmReceiver.EXTRA_NOTIF_ID, notifId)

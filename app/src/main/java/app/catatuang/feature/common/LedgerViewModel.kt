@@ -145,6 +145,18 @@ class LedgerViewModel(private val repo: CatatRepository) : ViewModel() {
         viewModelScope.launch { repo.updateSettings(transform) }
     }
 
+    // ---------- Pos (R-95) ----------
+    fun saveCategory(category: app.catatuang.engine.Category, message: String) {
+        viewModelScope.launch {
+            repo.saveCategory(category)
+            _events.emit(UiEvent(null, Tone.SUCCESS, message, undo = null))
+        }
+    }
+
+    suspend fun nextCategoryId(): Long = repo.nextCategoryId()
+
+    suspend fun changePin(old: String, new: String) = repo.changePin(old, new)
+
     // ---------- Backup (bab 11) ----------
     val backupFolderUri: StateFlow<String?> = repo.backupFolderUri.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val lastFolderBackup: StateFlow<String?> = repo.lastFolderBackup.stateIn(viewModelScope, SharingStarted.Eagerly, null)

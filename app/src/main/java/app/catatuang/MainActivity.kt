@@ -52,7 +52,16 @@ class MainActivity : ComponentActivity() {
         }
         handle(intent)
         setContent {
-            CatatUangTheme {
+            val settingsNow by container.settingsState.collectAsStateWithLifecycle()
+            val dark = settingsNow.theme == "DARK"
+            androidx.compose.runtime.LaunchedEffect(dark) {
+                val transparent = android.graphics.Color.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(transparent) else androidx.activity.SystemBarStyle.light(transparent, transparent),
+                    navigationBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(transparent) else androidx.activity.SystemBarStyle.light(transparent, transparent),
+                )
+            }
+            CatatUangTheme(dark = dark) {
                 CatatRoot(container.repository, container.settings, container.lockManager, container.clock, container.deepLink)
             }
         }
@@ -64,7 +73,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: android.content.Intent?) {
-        intent?.getStringExtra(app.catatuang.notify.Notifier.EXTRA_ROUTE)?.let { (application as CatatUangApp).container.deepLink.value = it }
+        val route = intent?.getStringExtra(app.catatuang.notify.Notifier.EXTRA_ROUTE) ?: return
+        // Hanya rute dari PendingIntent milik app ini (notifikasi/widget) yang diterima.
+        if (!app.catatuang.security.LinkToken.matches(this, intent.getStringExtra(app.catatuang.security.LinkToken.EXTRA))) return
+        if (!app.catatuang.notify.isKnownRoute(route)) return
+        (application as CatatUangApp).container.deepLink.value = route
     }
 }
 

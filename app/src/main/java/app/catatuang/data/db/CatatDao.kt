@@ -130,6 +130,16 @@ interface CatatDao {
         upsertClosure(closure)
     }
 
+    @Query("DELETE FROM category_amount WHERE categoryId = :categoryId") suspend fun deleteCategoryAmounts(categoryId: Long)
+
+    /** R-95: simpan pos beserta seluruh riwayat nominalnya. */
+    @Transaction
+    suspend fun saveCategory(category: CategoryEntity, amounts: List<CategoryAmountEntity>) {
+        upsertCategories(listOf(category))
+        deleteCategoryAmounts(category.id)
+        insertCategoryAmounts(amounts)
+    }
+
     /** Beberapa transaksi dalam satu transaksi database (mis. Mode Darurat, 7.3). */
     @Transaction
     suspend fun insertTxBatch(items: List<TxEntity>): List<Long> = items.map { insertTx(it) }

@@ -180,6 +180,8 @@ private fun PotCard(
 ) {
     val c = CatatTheme.colors
     val (fg, bg) = if (tone == Tone.SAVINGS) c.savings to c.savingsBg else c.emergency to c.emergencyBg
+    // Isi tombol memakai warna tema terang: teks putih tetap kontras di tema gelap.
+    val fill = if (tone == Tone.SAVINGS) app.catatuang.ui.theme.LightCatatColors.savings else app.catatuang.ui.theme.LightCatatColors.emergency
     Column(
         Modifier.fillMaxWidth().clip(CatatShapes.card).background(bg).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -189,8 +191,8 @@ private fun PotCard(
         if (shadow > 0) ShadowAmount(shadow, fg)
         extra?.invoke()
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PotButton("Setor", fg, Modifier.weight(1f), onDeposit)
-            PotButton("Ambil", fg, Modifier.weight(1f), onWithdraw)
+            PotButton("Setor", fill, Modifier.weight(1f), onDeposit)
+            PotButton("Ambil", fill, Modifier.weight(1f), onWithdraw)
         }
     }
 }

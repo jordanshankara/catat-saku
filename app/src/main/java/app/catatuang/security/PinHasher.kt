@@ -60,6 +60,14 @@ class PinAttempts(private val now: () -> Long) {
         }
     }
 
+    /** Pulihkan hitungan yang tersimpan (8.14: jeda tetap berlaku walau app ditutup paksa). */
+    fun restore(failures: Int, lockedUntil: Long) {
+        this.failures = failures
+        this.lockedUntil = lockedUntil
+    }
+
+    val lockedUntilMillis: Long get() = lockedUntil
+
     fun onSuccess() {
         failures = 0
         lockedUntil = 0

@@ -177,7 +177,7 @@ private fun FilterChip(text: String, on: Boolean, onClick: () -> Unit) {
         text,
         style = CatatType.bodySmall.copy(fontWeight = FontWeight.Bold),
         color = if (on) Color.White else c.textPrimary,
-        modifier = Modifier.clip(CatatShapes.chip).background(if (on) c.primary else c.surface)
+        modifier = Modifier.clip(CatatShapes.chip).background(if (on) c.primaryFill else c.surface)
             .border(1.dp, if (on) c.primary else c.divider, CatatShapes.chip).clickable(role = Role.Tab, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     )

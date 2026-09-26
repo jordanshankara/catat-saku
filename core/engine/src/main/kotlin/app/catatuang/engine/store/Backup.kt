@@ -82,7 +82,53 @@ object BackupCodec {
         } catch (e: Exception) {
             return BackupReadResult.Invalid("Struktur backup rusak: ${e.message}")
         }
+        validate(doc.toSnapshot())?.let { return BackupReadResult.Invalid(it) }
         return BackupReadResult.Ok(doc, preview(doc))
+    }
+
+    private const val MAX_TRANSACTIONS = 200_000
+
+    /**
+     * Validasi isi (bukan hanya struktur) sebelum Pulihkan: semua enum/tanggal terbaca, nominal tidak negatif,
+     * referensi pos ada, dan ledger bisa dihitung. File rusak/buatan tangan tidak boleh membuat app crash
+     * setiap dibuka. Null = valid.
+     */
+    /** Batas sama dengan input (12 digit): mencegah overflow Long saat dijumlah/dikali hari. */
+    private fun okAmount(v: Long) = v in 0..999_999_999_999L
+
+    fun validate(snapshot: DataSnapshot): String? {
+        return try {
+            val s = snapshot.settings
+            val start = s.startDate?.let(LocalDate::parse) ?: return "Tanggal mulai tidak ada."
+            if (!s.onboardingDone) return "Backup belum selesai onboarding."
+            if (listOf(s.cashStart, s.savingsStart, s.emergencyStart, s.safeThreshold, s.emergencyTarget, s.salaryTemplate).any { !okAmount(it) })
+                return "Ada nominal pengaturan yang tidak wajar."
+            java.time.LocalTime.parse(s.notificationTime)
+            if (s.lockTimeoutMinutes !in 1..1440) return "Batas waktu kunci tidak wajar."
+            if (snapshot.transactions.size > MAX_TRANSACTIONS) return "Terlalu banyak transaksi."
+            val catIds = snapshot.categories.map { it.id }
+            if (catIds.toSet().size != catIds.size) return "ID pos ganda."
+            val categories = snapshot.categories.map { it.toCategory() }
+            if (categories.any { c -> c.amounts.any { !okAmount(it.dailyAmount ?: 0) || !okAmount(it.monthlyAmount ?: 0) } }) return "Nominal pos tidak wajar."
+            val known = catIds.toSet()
+            snapshot.transactions.forEach { r ->
+                val tx = r.toTx()
+                if (!okAmount(tx.amount) || !okAmount(kotlin.math.abs(tx.signedAmount ?: 0))) return "Transaksi dengan nominal tidak wajar."
+                if (tx.categoryId != null && tx.categoryId !in known) return "Transaksi merujuk pos yang tidak ada."
+            }
+            if (snapshot.transactions.map { it.id }.toSet().size != snapshot.transactions.size) return "ID transaksi ganda."
+            snapshot.monthPlans.forEach { java.time.YearMonth.parse(it.yearMonth); if (it.status !in setOf("OPEN", "CLOSED")) return "Status bulan tidak dikenal." }
+            snapshot.allocations.forEach { java.time.YearMonth.parse(it.yearMonth); if (it.categoryId !in known || !okAmount(it.monthlyAmount) || !okAmount(it.dailyAmount ?: 0)) return "Alokasi tidak valid." }
+            snapshot.fixedObligations.forEach { java.time.YearMonth.parse(it.yearMonth); if (it.status !in setOf("UNPAID", "PAID", "CANCELLED") || !okAmount(it.estimate)) return "Tagihan tetap tidak valid." }
+            snapshot.dayMarks.forEach { LocalDate.parse(it.date) }
+            snapshot.closures.forEach { java.time.YearMonth.parse(it.yearMonth) }
+            val input = snapshot.toLedgerInput() ?: return "Data tidak lengkap."
+            val last = (snapshot.transactions.map { LocalDate.parse(it.date) } + start).max()
+            app.catatuang.engine.computeLedger(input, maxOf(last, start))
+            null
+        } catch (e: Exception) {
+            "Isi backup tidak valid: ${e.message ?: e.javaClass.simpleName}"
+        }
     }
 
     /** Tempat migrasi JSON antar-skema. Skema 1 adalah versi pertama. */

@@ -40,6 +40,11 @@ data class NotifSpec(
     val actions: List<NotifAction> = emptyList(),
 )
 
+/** Rute yang boleh datang dari luar layar (notifikasi/widget). */
+fun isKnownRoute(route: String): Boolean =
+    route in setOf("home", "picker", "salary", "closing", "report") ||
+        Regex("""(input|pay)/\d{1,6}""").matches(route)
+
 const val ACTION_DAY_DONE = "app.catatuang.DAY_DONE"
 const val ACTION_CHECKLIST_DONE = "app.catatuang.CHECKLIST_DONE"
 const val PUBLIC_TEXT = "Catat Uang · ada info baru"

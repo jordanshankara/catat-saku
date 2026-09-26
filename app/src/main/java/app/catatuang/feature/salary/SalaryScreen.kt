@@ -274,8 +274,8 @@ fun SalaryScreen(ready: AppState.Ready, vm: LedgerViewModel, onDone: () -> Unit,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Box(
-                                Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(if (transferred) c.success else c.surface)
-                                    .border(2.dp, if (transferred) c.success else c.divider, RoundedCornerShape(8.dp)),
+                                Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(if (transferred) c.successFill else c.surface)
+                                    .border(2.dp, if (transferred) c.successFill else c.divider, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center,
                             ) { if (transferred) Icon(LucideIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
                             Text("Transfer ${rp(deposit)} ke rekening tabungan", style = CatatType.body.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)

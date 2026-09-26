@@ -22,8 +22,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // Naikkan setiap build yang di-install ke HP.
-        versionCode = 6
-        versionName = "0.5.0"
+        versionCode = 7
+        versionName = "0.6.0"
     }
 
     signingConfigs {
@@ -96,6 +96,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.glance.appwidget)
 
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.android)

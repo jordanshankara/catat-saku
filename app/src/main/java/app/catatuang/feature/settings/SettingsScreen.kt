@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -63,6 +65,7 @@ import app.catatuang.ui.components.SecondaryButton
 import app.catatuang.ui.components.SectionCard
 import app.catatuang.ui.components.Tone
 import app.catatuang.ui.format.fullDate
+import app.catatuang.ui.icons.LucideIcons
 import app.catatuang.ui.theme.CatatShapes
 import app.catatuang.ui.theme.CatatTheme
 import app.catatuang.ui.theme.CatatType
@@ -72,7 +75,7 @@ import java.time.LocalTime
 /** 8.11 Pengaturan (bagian yang sudah tersedia) + Mode Uji Tanggal tersembunyi. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
+fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel, onCategories: () -> Unit = {}) {
     val c = CatatTheme.colors
     val s = ready.settings
     val context = LocalContext.current
@@ -85,6 +88,7 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
     var pickTime by remember { mutableStateOf(false) }
     var versionTaps by remember { mutableIntStateOf(0) }
     var pickTestDate by remember { mutableStateOf(false) }
+    var changePin by remember { mutableStateOf(false) }
     var notifEnabled by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notifEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
@@ -124,6 +128,27 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
             if (nickname.trim() != s.nickname && nickname.isNotBlank()) SecondaryButton("Simpan nama", onClick = { save { it.copy(nickname = nickname.trim()) } })
         }
 
+        Group("Pos & anggaran") {
+            Row(Modifier.fillMaxWidth().clip(CatatShapes.chip).clickable(role = Role.Button, onClick = onCategories).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Pos & nominal", style = CatatType.body.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                    Text("Ubah nominal, jatuh tempo, tambah/arsip pos · berlaku bulan depan", style = CatatType.caption, color = c.textSecondary)
+                }
+                Icon(LucideIcons.ChevronRight, contentDescription = null, tint = c.textSecondary)
+            }
+        }
+
+        Group("Tampilan") {
+            Row(Modifier.toggleable(value = s.theme == "DARK", role = Role.Switch) { v -> save { it.copy(theme = if (v) "DARK" else "LIGHT") } },
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Tema gelap", style = CatatType.body.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                    Text(if (s.theme == "DARK") "Aktif" else "Mati · tema terang", style = CatatType.caption, color = c.textSecondary)
+                }
+                Switch(checked = s.theme == "DARK", onCheckedChange = null)
+            }
+        }
+
         Group("Notifikasi") {
             Row(Modifier.fillMaxWidth().clip(CatatShapes.chip).clickable(role = Role.Button) { pickTime = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -161,14 +186,16 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
         }
 
         Group("Keamanan") {
+            SecondaryButton("Ganti PIN", onClick = { changePin = true })
             Text("Kunci PIN setelah di-background", style = CatatType.body.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
             ChoiceChips(listOf(1, 5, 15, 30).map { it to "$it menit" }, s.lockTimeoutMinutes, onSelect = { m -> save { it.copy(lockTimeoutMinutes = m) } })
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.toggleable(value = s.blockScreenshots, role = Role.Switch) { v -> save { it.copy(blockScreenshots = v) } },
+                verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Blokir screenshot", style = CatatType.body.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                     Text("Layar app tidak bisa di-screenshot atau direkam", style = CatatType.caption, color = c.textSecondary)
                 }
-                Switch(checked = s.blockScreenshots, onCheckedChange = { v -> save { it.copy(blockScreenshots = v) } })
+                Switch(checked = s.blockScreenshots, onCheckedChange = null)
             }
         }
 
@@ -189,9 +216,6 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
             if (testDate != null) Text("Matikan Mode Uji dulu sebelum pulihkan.", style = CatatType.caption, color = c.warningText)
             Text("File backup tidak terenkripsi — simpan di tempat aman.", style = CatatType.caption, color = c.textSecondary)
         }
-
-        Text("Menyusul di Fase 8: ubah pos & nominal, tambah/arsip pos, jatuh tempo tagihan, ganti PIN, tema gelap.",
-            style = CatatType.caption, color = c.textSecondary)
 
         Text(
             "Catat Uang versi ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
@@ -215,10 +239,17 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
                             onSelect = { slot -> scope.launch { NotificationRunner.run(context, container, slot) } },
                         )
                     }
-                    PrimaryButton("Matikan Mode Uji", color = c.danger, onClick = { vm.exitTestMode(); versionTaps = 0 })
+                    PrimaryButton("Matikan Mode Uji", color = c.dangerFill, onClick = { vm.exitTestMode(); versionTaps = 0 })
                 }
             }
         }
+    }
+
+    if (changePin) {
+        ChangePinSheet(vm, onDone = { msg ->
+            changePin = false
+            vm.announce(app.catatuang.feature.common.UiEvent(null, Tone.SUCCESS, msg, undo = null))
+        }, onDismiss = { changePin = false })
     }
 
     if (pickTime) {

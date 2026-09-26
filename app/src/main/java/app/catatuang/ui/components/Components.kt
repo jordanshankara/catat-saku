@@ -69,7 +69,7 @@ fun toneColors(tone: Tone): ToneColors {
     val c = CatatTheme.colors
     return when (tone) {
         Tone.NEUTRAL -> ToneColors(c.textSecondary, c.background)
-        Tone.INFO -> ToneColors(c.primary, Color(0xFFE3E9FF))
+        Tone.INFO -> ToneColors(c.primary, c.infoBg)
         Tone.SUCCESS -> ToneColors(c.success, c.successBg)
         Tone.WARNING -> ToneColors(c.warningText, c.warningBg)
         Tone.DANGER -> ToneColors(c.dangerText, c.dangerBg)
@@ -158,7 +158,7 @@ fun Numpad(onDigits: (String) -> Unit, onBackspace: () -> Unit, modifier: Modifi
                     val isBack = key == "⌫"
                     Box(
                         Modifier.weight(1f).height(CatatShapes.numpadKey).clip(RoundedCornerShape(14.dp))
-                            .background(if (CatatTheme.colors.isDark) CatatTheme.colors.surface else Color(0xFFF3F4FA))
+                            .background(CatatTheme.colors.keyBg)
                             .clickable(role = Role.Button) { if (isBack) onBackspace() else onDigits(key) }
                             .semantics { if (isBack) contentDescription = "Hapus angka" },
                         contentAlignment = Alignment.Center,
@@ -181,7 +181,7 @@ fun Numpad(onDigits: (String) -> Unit, onBackspace: () -> Unit, modifier: Modifi
 
 /** Tombol utama biru (16dp). */
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = CatatTheme.colors.primary) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = CatatTheme.colors.primaryFill) {
     Box(
         modifier.fillMaxWidth().heightIn(min = 56.dp).clip(CatatShapes.button)
             .background(if (enabled) color else color.copy(alpha = 0.4f))
@@ -213,12 +213,12 @@ fun QuickAmountChips(amounts: List<Long>, selected: Long?, onPick: (Long) -> Uni
             val on = a == selected
             Box(
                 Modifier.weight(1f).height(40.dp).clip(CatatShapes.chip)
-                    .background(if (on) Color(0xFFE3E9FF) else c.surface)
+                    .background(if (on) c.infoBg else c.surface)
                     .border(1.5.dp, if (on) c.primary else c.divider, CatatShapes.chip)
                     .clickable(role = Role.Button) { onPick(a) },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label(a), style = CatatType.body.copy(fontWeight = if (on) FontWeight.ExtraBold else FontWeight.Bold), color = if (on) Color(0xFF1E3A9E) else c.textPrimary)
+                Text(label(a), style = CatatType.body.copy(fontWeight = if (on) FontWeight.ExtraBold else FontWeight.Bold), color = if (on) c.selectedText else c.textPrimary)
             }
         }
         repeat(4 - amounts.size) { Spacer(Modifier.weight(1f)) }
@@ -269,7 +269,7 @@ fun HoldToConfirmButton(text: String, onConfirmed: () -> Unit, modifier: Modifie
     val confirm by rememberUpdatedState(onConfirmed)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val color = (if (danger) c.danger else c.primary).let { if (enabled) it else it.copy(alpha = 0.4f) }
+    val color = (if (danger) c.dangerFill else c.primaryFill).let { if (enabled) it else it.copy(alpha = 0.4f) }
     Row(
         modifier.fillMaxWidth().heightIn(min = 60.dp).clip(CatatShapes.button).background(color)
             .semantics(mergeDescendants = true) {

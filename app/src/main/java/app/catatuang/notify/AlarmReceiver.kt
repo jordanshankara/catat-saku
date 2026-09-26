@@ -52,7 +52,11 @@ class AlarmReceiver : BroadcastReceiver() {
 
 /** Jadwal ulang setelah boot / perubahan jam / zona waktu / update app. */
 class RescheduleReceiver : BroadcastReceiver() {
+    private val allowed = setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_MY_PACKAGE_REPLACED)
+
     override fun onReceive(context: Context, intent: Intent) {
+        // Receiver ini exported (wajib untuk broadcast sistem); aksi lain diabaikan.
+        if (intent.action !in allowed) return
         val app = context.applicationContext as? CatatUangApp ?: return
         val result = goAsync()
         CoroutineScope(Dispatchers.Default).launch {

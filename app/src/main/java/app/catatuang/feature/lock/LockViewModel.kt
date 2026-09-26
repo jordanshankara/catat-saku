@@ -23,7 +23,11 @@ class LockViewModel(private val settings: SettingsStore, private val lock: LockM
     val ui: StateFlow<LockUi> = _ui.asStateFlow()
 
     init {
-        refreshWait()
+        viewModelScope.launch {
+            val (failures, until) = settings.pinAttempts.first()
+            if (failures > lock.attempts.failures) lock.attempts.restore(failures, until)
+            refreshWait()
+        }
     }
 
     fun digit(d: String) {
@@ -42,6 +46,7 @@ class LockViewModel(private val settings: SettingsStore, private val lock: LockM
             val stored = settings.pin.first()
             val ok = stored != null && withContext(Dispatchers.Default) { PinHasher.verify(pin, stored) }
             if (ok) {
+                settings.setPinAttempts(0, 0)
                 lock.unlock()
                 _ui.value = LockUi()
             } else {
@@ -51,6 +56,8 @@ class LockViewModel(private val settings: SettingsStore, private val lock: LockM
                     it.copy(entered = "", checking = false, error = if (left == 5) null else "PIN salah. $left kali lagi sebelum jeda.")
                 }
                 refreshWait()
+                // Simpan permanen (8.14): jeda tetap berlaku walau app ditutup paksa.
+                settings.setPinAttempts(lock.attempts.failures, lock.attempts.lockedUntilMillis)
             }
         }
     }

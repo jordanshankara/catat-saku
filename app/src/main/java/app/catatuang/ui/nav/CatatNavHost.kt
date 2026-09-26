@@ -228,8 +228,9 @@ fun MainScaffold(vm: LedgerViewModel, deepLink: kotlinx.coroutines.flow.MutableS
                 )
             }
             composable(Tab.Pengaturan.route) {
-                SettingsScreen(ready, vm)
+                SettingsScreen(ready, vm, onCategories = { nav.navigate("settings/pos") })
             }
+            composable("settings/pos") { app.catatuang.feature.settings.CategoriesScreen(ready, vm, onBack = { nav.popBackStack() }) }
             composable("savings") { SavingsScreen(ready, vm, onBack = { nav.popBackStack() }) }
             composable("detail/daily/{id}") { entry ->
                 val id = entry.arguments?.getString("id")?.toLongOrNull()
@@ -391,7 +392,7 @@ private fun BottomBar(current: String, onTab: (Tab) -> Unit, onAdd: () -> Unit) 
                 .background(colors.background)
                 .padding(4.dp)
                 .clip(CircleShape)
-                .background(colors.success)
+                .background(colors.successFill)
                 .clickable(role = Role.Button, onClick = onAdd)
                 .semantics { contentDescription = "Catat cepat" },
             contentAlignment = Alignment.Center,

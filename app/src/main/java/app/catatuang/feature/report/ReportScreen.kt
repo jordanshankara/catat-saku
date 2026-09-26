@@ -80,9 +80,16 @@ private val SERIES = listOf(
     Color(0xFFE87BA4), Color(0xFF008300), Color(0xFF4A3AA7), Color(0xFFE34948),
 )
 
-fun seriesColor(categories: List<Category>, id: Long): Color {
+/** Versi tema gelap dari palet yang sama (urutan identik, divalidasi terhadap latar #1C2140). */
+private val SERIES_DARK = listOf(
+    Color(0xFF3987E5), Color(0xFFD95926), Color(0xFF199E70), Color(0xFFC98500),
+    Color(0xFFD55181), Color(0xFF008300), Color(0xFF9085E9), Color(0xFFE66767),
+)
+
+fun seriesColor(categories: List<Category>, id: Long, dark: Boolean = false): Color {
     val index = categories.sortedBy { it.sortOrder }.indexOfFirst { it.id == id }
-    return SERIES[(index.coerceAtLeast(0)) % SERIES.size]
+    val palette = if (dark) SERIES_DARK else SERIES
+    return palette[(index.coerceAtLeast(0)) % palette.size]
 }
 
 enum class ReportTab { MINGGUAN, BULANAN }
@@ -176,7 +183,7 @@ private fun Weekly(ready: AppState.Ready) {
             report.perCategory.entries.sortedBy { e -> cats.firstOrNull { it.id == e.key }?.sortOrder ?: 0 }.forEach { (id, v) ->
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     AmountRow(cats.firstOrNull { it.id == id }?.name ?: "pos", rp(v))
-                    ThinProgress(v.toFloat() / max, seriesColor(cats, id))
+                    ThinProgress(v.toFloat() / max, seriesColor(cats, id, c.isDark))
                 }
             }
         }
@@ -216,13 +223,13 @@ private fun DailyLineChart(daily: Map<Long, List<app.catatuang.engine.DayUsage>>
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 daily.keys.forEach { id ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(seriesColor(cats, id)))
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(seriesColor(cats, id, c.isDark)))
                         Text(cats.first { it.id == id }.name, style = CatatType.caption, color = c.textSecondary)
                     }
                 }
                 Text("- - jatah", style = CatatType.caption, color = c.textSecondary)
             }
-            val lineColors = daily.keys.associateWith { seriesColor(cats, it) }
+            val lineColors = daily.keys.associateWith { seriesColor(cats, it, c.isDark) }
             val grid = c.divider
             val surface = c.surface
             Canvas(
@@ -306,7 +313,7 @@ private fun Monthly(ready: AppState.Ready) {
                             spend.forEach { (id, v) ->
                                 val sweep = 360f * v / total
                                 val chosen = pick == id
-                                drawArc(seriesColor(cats, id), angle, sweep, false, topLeft = Offset(inset, inset),
+                                drawArc(seriesColor(cats, id, c.isDark), angle, sweep, false, topLeft = Offset(inset, inset),
                                     size = Size(size.width - 2 * inset, size.height - 2 * inset), style = Stroke(if (chosen) stroke + 6.dp.toPx() else stroke))
                                 // Celah 2dp antar potongan (warna permukaan).
                                 drawArc(surface, angle + sweep - 0.8f, 0.8f, false, topLeft = Offset(inset, inset),
@@ -325,7 +332,7 @@ private fun Monthly(ready: AppState.Ready) {
                                 Modifier.fillMaxWidth().clip(CatatShapes.chip).clickable { pick = if (pick == id) null else id }.padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Box(Modifier.size(10.dp).clip(CircleShape).background(seriesColor(cats, id)))
+                                Box(Modifier.size(10.dp).clip(CircleShape).background(seriesColor(cats, id, c.isDark)))
                                 Text(cats.firstOrNull { it.id == id }?.name ?: "", style = CatatType.caption, color = c.textPrimary, modifier = Modifier.weight(1f))
                                 Text("${Math.round(v * 100.0 / total)}%", style = CatatType.caption, color = c.textSecondary)
                             }
