@@ -117,7 +117,13 @@ fun TxRow(tx: Tx, ready: AppState.Ready, onClick: () -> Unit) {
 fun HistoryScreen(ready: AppState.Ready, onEdit: (Long) -> Unit) {
     val c = CatatTheme.colors
     val start = YearMonth.from(ready.input.onboarding.startDate)
-    var monthText by rememberSaveable { mutableStateOf(ready.ledger.currentMonth.toString()) }
+    val currentText = ready.ledger.currentMonth.toString()
+    var monthText by rememberSaveable { mutableStateOf(currentText) }
+    // Tab Riwayat mengingat bulan terakhir dilihat, tapi kembali ke bulan berjalan begitu bulan baru dimulai.
+    var anchor by rememberSaveable { mutableStateOf(currentText) }
+    androidx.compose.runtime.LaunchedEffect(currentText) {
+        if (anchor != currentText) { anchor = currentText; monthText = currentText }
+    }
     val month = YearMonth.parse(monthText)
     var filter by rememberSaveable { mutableStateOf<Long?>(null) }
     val cats = ready.input.categories
