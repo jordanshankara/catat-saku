@@ -327,6 +327,23 @@ class CatatRepository(
         )
     }
 
+    val backupFolderUri: Flow<String?> = settings.backupFolderUri
+    val lastFolderBackup: Flow<String?> = settings.lastFolderBackup
+    suspend fun setBackupFolder(uri: String?) = settings.setBackupFolder(uri)
+    suspend fun setLastFolderBackup(value: String) = settings.setLastFolderBackup(value)
+    val pin: Flow<StoredPin?> = settings.pin
+
+    /**
+     * Pulihkan dari file backup (bab 11): ganti seluruh data, lalu hapus PIN lama supaya pengguna membuat
+     * PIN baru. Folder auto-backup di HP ini tetap dipakai. Tidak boleh saat Mode Uji aktif.
+     */
+    suspend fun restoreFromBackup(snapshot: DataSnapshot) {
+        check(settings.testModeDate.first() == null) { "Matikan Mode Uji dulu" }
+        restore(snapshot)
+        settings.setPin(null)
+        settings.setTransferChecklist(null)
+    }
+
     /** Pulihkan: ganti seluruh data dalam satu transaksi database, lalu pengaturan (bab 11). */
     suspend fun restore(snapshot: DataSnapshot) {
         dao.replaceAll(

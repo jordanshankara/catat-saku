@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -77,6 +78,8 @@ fun CatatRoot(
 ) {
     val state by repository.state.collectAsStateWithLifecycle()
     val locked by lockManager.locked.collectAsStateWithLifecycle()
+    // null = belum terbaca; false = belum ada PIN (baru dipulihkan dari backup).
+    val hasPin by remember(settings) { settings.pin.map { it != null } }.collectAsStateWithLifecycle(null)
     Box(Modifier.fillMaxSize().background(CatatTheme.colors.background)) {
         when (state) {
             AppState.Loading -> Unit
@@ -86,7 +89,11 @@ fun CatatRoot(
                 })
                 OnboardingScreen(vm)
             }
-            is AppState.Ready -> if (locked) {
+            is AppState.Ready -> if (hasPin == null) {
+                Unit
+            } else if (hasPin == false) {
+                app.catatuang.feature.lock.NewPinScreen(settings, lockManager)
+            } else if (locked) {
                 val vm: LockViewModel = viewModel(factory = viewModelFactory {
                     initializer { LockViewModel(settings, lockManager) }
                 })

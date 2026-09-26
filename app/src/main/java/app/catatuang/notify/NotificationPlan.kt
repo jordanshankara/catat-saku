@@ -25,7 +25,7 @@ enum class Channel(val id: String, val label: String) {
 }
 
 /** Jadwal harian yang memicu pemeriksaan (bab 9). DAILY = jam notifikasi (default 22:00). */
-enum class Slot(val hour: Int?) { DAILY(null), AT_0700(7), AT_0900(9), AT_1200(12) }
+enum class Slot(val hour: Int?) { DAILY(null), AT_0700(7), AT_0900(9), AT_1200(12), AT_2300(23) }
 
 /** Tombol di notifikasi: buka app ke [route], atau aksi langsung [broadcast] tanpa membuka app. */
 data class NotifAction(val label: String, val route: String? = null, val broadcast: String? = null)
@@ -125,7 +125,7 @@ fun reminderNotifications(
     checklist: Pair<String?, Int>,
     checklistSince: LocalDate?,
 ): List<NotifSpec> = when (slot) {
-    Slot.DAILY -> emptyList()
+    Slot.DAILY, Slot.AT_2300 -> emptyList()
     Slot.AT_0700 -> {
         val pending = pendingClosing(state)
         if (today.dayOfMonth == 1 && pending != null) {

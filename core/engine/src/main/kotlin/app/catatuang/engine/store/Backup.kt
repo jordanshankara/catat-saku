@@ -97,6 +97,22 @@ object BackupCodec {
         return BackupPreview(months, doc.transactions.size, dates.maxOrNull())
     }
 
+    private val FILE_PATTERN = Regex("""catatuang-backup-\d{8}-\d{4}\.json""")
+
+    /** Auto-backup (bab 11): simpan [keep] file backup terbaru; sisanya (hanya file backup app ini) dihapus. */
+    fun backupsToDelete(names: List<String>, keep: Int = 8): List<String> =
+        names.filter { FILE_PATTERN.matches(it) }.sortedDescending().drop(keep)
+
+    /** Teks preview Pulihkan, contoh "8 bulan data · 1.240 transaksi · terakhir 23 Sep 2026". */
+    fun previewText(p: BackupPreview): String {
+        fun group(n: Int) = n.toString().reversed().chunked(3).joinToString(".").reversed()
+        val last = p.lastTransaction?.let {
+            val m = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")[it.monthValue - 1]
+            " · terakhir ${it.dayOfMonth} $m ${it.year}"
+        } ?: ""
+        return "${p.months} bulan data · ${group(p.transactions)} transaksi$last"
+    }
+
     fun fileName(now: LocalDateTime): String =
         "catatuang-backup-${now.format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))}.json"
 }

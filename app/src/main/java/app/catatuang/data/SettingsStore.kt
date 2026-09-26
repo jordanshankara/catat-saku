@@ -49,6 +49,13 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         store.edit { it[CADANGAN_DISMISSED] = month }
     }
 
+    /** Hasil backup ke folder terakhir: "2026-09-27T23:00|catatuang-backup-….json" atau "…|GAGAL: alasan". */
+    val lastFolderBackup: Flow<String?> = store.data.map { it[LAST_FOLDER_BACKUP] }
+
+    suspend fun setLastFolderBackup(value: String) {
+        store.edit { it[LAST_FOLDER_BACKUP] = value }
+    }
+
     /** Mode Uji Tanggal (8.11): tanggal "hari ini" palsu; null = mati. */
     val testModeDate: Flow<String?> = store.data.map { it[TEST_MODE_DATE] }
 
@@ -149,6 +156,7 @@ class SettingsStore(private val store: DataStore<Preferences>) {
         val CHECKLIST_SINCE = stringPreferencesKey("transfer_checklist_since")
         val CADANGAN_DISMISSED = stringPreferencesKey("cadangan_banner_dismissed")
         val TEST_MODE_DATE = stringPreferencesKey("test_mode_date")
+        val LAST_FOLDER_BACKUP = stringPreferencesKey("last_folder_backup")
         val CLOSING_AUTO_OPENED = stringPreferencesKey("closing_auto_opened")
     }
 }

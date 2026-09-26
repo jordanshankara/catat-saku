@@ -29,7 +29,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     ACTION_SLOT -> {
                         val slot = runCatching { Slot.valueOf(intent.getStringExtra(EXTRA_SLOT) ?: "") }.getOrNull() ?: return@launch
-                        NotificationRunner.run(context, container, slot)
+                        if (slot == Slot.AT_2300) AutoBackup.runIfDue(context, container)
+                        else NotificationRunner.run(context, container, slot)
                         Scheduler.schedule(context, slot, container.settings.current().notificationTime)
                     }
                     ACTION_DAY_DONE -> {

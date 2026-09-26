@@ -145,6 +145,16 @@ class LedgerViewModel(private val repo: CatatRepository) : ViewModel() {
         viewModelScope.launch { repo.updateSettings(transform) }
     }
 
+    // ---------- Backup (bab 11) ----------
+    val backupFolderUri: StateFlow<String?> = repo.backupFolderUri.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val lastFolderBackup: StateFlow<String?> = repo.lastFolderBackup.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setBackupFolder(uri: String?) { viewModelScope.launch { repo.setBackupFolder(uri) } }
+
+    fun restoreFromBackup(snapshot: app.catatuang.engine.store.DataSnapshot) {
+        viewModelScope.launch { repo.restoreFromBackup(snapshot) }
+    }
+
     fun setTestDate(date: java.time.LocalDate) { viewModelScope.launch { repo.setTestDate(date) } }
     fun exitTestMode() { viewModelScope.launch { repo.exitTestMode() } }
 

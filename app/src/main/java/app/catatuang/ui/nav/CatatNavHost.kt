@@ -106,6 +106,7 @@ fun MainScaffold(vm: LedgerViewModel, deepLink: kotlinx.coroutines.flow.MutableS
     var editTx by rememberSaveable { mutableStateOf<Long?>(null) }
     var showNotices by rememberSaveable { mutableStateOf(false) }
     var showIncome by rememberSaveable { mutableStateOf(false) }
+    var showExport by rememberSaveable { mutableStateOf(false) }
     var payFixed by remember { mutableStateOf<FixedDue?>(null) }
     val checklist by vm.transferChecklist.collectAsStateWithLifecycle()
     val cadanganDismissed by vm.cadanganBannerDismissed.collectAsStateWithLifecycle()
@@ -212,7 +213,7 @@ fun MainScaffold(vm: LedgerViewModel, deepLink: kotlinx.coroutines.flow.MutableS
                 )
             }
             composable(Tab.Riwayat.route) { HistoryScreen(ready, onEdit = { editTx = it }) }
-            composable(Tab.Laporan.route) { Placeholder("Laporan", "Laporan mingguan & bulanan dibuat di Fase 6.") }
+            composable(Tab.Laporan.route) { app.catatuang.feature.report.ReportScreen(ready, vm, onExport = { showExport = true }) }
             composable("salary?target={target}") { entry ->
                 val target = entry.arguments?.getString("target")?.let(java.time.YearMonth::parse)
                 SalaryScreen(ready, vm, onDone = { nav.popBackStack() }, initialTarget = target)
@@ -288,6 +289,15 @@ fun MainScaffold(vm: LedgerViewModel, deepLink: kotlinx.coroutines.flow.MutableS
                 if (isTab && current != Tab.Beranda.route) nav.navigate(Tab.Beranda.route) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
             })
         }
+    }
+
+    if (showExport) {
+        ModalBottomSheet(
+            onDismissRequest = { showExport = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = CatatShapes.sheet,
+            containerColor = colors.surface,
+        ) { app.catatuang.feature.report.ExportContent(ready, onDone = { showExport = false }) }
     }
 
     payFixed?.let { due ->

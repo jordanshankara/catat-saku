@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,7 +68,7 @@ fun OnboardingScreen(vm: OnboardingViewModel) {
     BackHandler(enabled = index > 0) { vm.go(ORDER[index - 1]) }
     val next = { vm.go(ORDER[(index + 1).coerceAtMost(ORDER.lastIndex)]) }
     when (f.step) {
-        OnboardingStep.WELCOME -> Welcome(onStart = next)
+        OnboardingStep.WELCOME -> Welcome(onStart = next, onRestore = vm::restore)
         OnboardingStep.NAME -> Page(1, "Mau dipanggil apa?", "Nama ini muncul di Beranda. Bisa diubah nanti di Pengaturan.") {
             val c = CatatTheme.colors
             OutlinedTextField(
@@ -222,8 +223,13 @@ private fun Page(
 }
 
 @Composable
-private fun Welcome(onStart: () -> Unit) {
+private fun Welcome(onStart: () -> Unit, onRestore: (app.catatuang.engine.store.DataSnapshot) -> Unit) {
     val c = CatatTheme.colors
+    var picked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<app.catatuang.engine.store.BackupReadResult?>(null) }
+    val pick = app.catatuang.feature.backup.rememberBackupPicker { picked = it }
+    picked?.let { r ->
+        app.catatuang.feature.backup.RestoreDialog(r, replacesData = false, onConfirm = { ok -> picked = null; onRestore(ok.document.toSnapshot()) }, onDismiss = { picked = null })
+    }
     Column(
         Modifier.fillMaxSize().background(c.background).statusBarsPadding().navigationBarsPadding().padding(CatatShapes.screenPadding),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -233,7 +239,7 @@ private fun Welcome(onStart: () -> Unit) {
         Text("Catat pengeluaran dalam 4 tap. Semua data tetap di HP ini.", style = CatatType.body, color = c.textSecondary)
         Spacer(Modifier.height(12.dp))
         StartTile("Mulai Baru", "Atur pos, PIN, dan saldo awal", enabled = true, onClick = onStart)
-        StartTile("Pulihkan dari Backup", "Tersedia di pembaruan berikutnya", enabled = false, onClick = {})
+        StartTile("Pulihkan dari Backup", "Pilih file catatuang-backup-….json", enabled = true, onClick = pick)
         Spacer(Modifier.weight(1f))
     }
 }

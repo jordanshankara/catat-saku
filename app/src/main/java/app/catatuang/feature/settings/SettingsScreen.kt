@@ -89,6 +89,24 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notifEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
+    val folder by vm.backupFolderUri.collectAsStateWithLifecycle()
+    val lastBackup by vm.lastFolderBackup.collectAsStateWithLifecycle()
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            vm.setBackupFolder(uri.toString())
+        }
+    }
+    var restorePick by remember { mutableStateOf<app.catatuang.engine.store.BackupReadResult?>(null) }
+    val pickBackup = app.catatuang.feature.backup.rememberBackupPicker { restorePick = it }
+    restorePick?.let { r ->
+        app.catatuang.feature.backup.RestoreDialog(r, replacesData = true, onConfirm = { ok ->
+            restorePick = null
+            vm.restoreFromBackup(ok.document.toSnapshot())
+        }, onDismiss = { restorePick = null })
+    }
     fun save(transform: (app.catatuang.engine.store.SettingsRecord) -> app.catatuang.engine.store.SettingsRecord) = vm.updateSettings(transform)
 
     Column(
@@ -154,11 +172,26 @@ fun SettingsScreen(ready: AppState.Ready, vm: LedgerViewModel) {
             }
         }
 
-        Group("Data") {
+        Group("Backup & pulihkan") {
+            Text("Auto-backup tiap Minggu 23:00 ke folder pilihan (8 file terakhir disimpan).", style = CatatType.bodySmall, color = c.textSecondary)
+            if (folder == null) NoticeBox("Folder auto-backup belum dipilih — backup mingguan tidak jalan.", Tone.WARNING)
+            else Text("Folder: ${Uri.parse(folder).lastPathSegment?.substringAfterLast(':')?.ifEmpty { "(root)" } ?: folder}", style = CatatType.body.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+            lastBackup?.split('|', limit = 2)?.let { parts ->
+                val failed = parts.getOrNull(1)?.startsWith("GAGAL") == true
+                NoticeBox("Backup terakhir ${parts[0].replace('T', ' ')} · ${parts.getOrNull(1) ?: ""}", if (failed) Tone.DANGER else Tone.SUCCESS)
+            }
+            SecondaryButton(if (folder == null) "Pilih folder" else "Ganti folder", onClick = { folderPicker.launch(null) })
+            if (folder != null && container != null) {
+                SecondaryButton("Backup ke folder sekarang", onClick = { scope.launch { app.catatuang.notify.AutoBackup.run(context, container) } })
+            }
             PrimaryButton("Kirim backup", onClick = { vm.shareBackup(context) })
-            Text("Menyusul: ubah pos & nominal, tambah/arsip pos, jatuh tempo tagihan, ganti PIN, tema gelap (Fase 8); auto-backup & pulihkan (Fase 7).",
-                style = CatatType.caption, color = c.textSecondary)
+            SecondaryButton("Pulihkan dari backup", enabled = testDate == null, onClick = pickBackup)
+            if (testDate != null) Text("Matikan Mode Uji dulu sebelum pulihkan.", style = CatatType.caption, color = c.warningText)
+            Text("File backup tidak terenkripsi — simpan di tempat aman.", style = CatatType.caption, color = c.textSecondary)
         }
+
+        Text("Menyusul di Fase 8: ubah pos & nominal, tambah/arsip pos, jatuh tempo tagihan, ganti PIN, tema gelap.",
+            style = CatatType.caption, color = c.textSecondary)
 
         Text(
             "Catat Uang versi ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
